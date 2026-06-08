@@ -4,34 +4,48 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+
+// Public pages
 import Home from "./pages/Home";
+import Register from "./pages/Register";
+import RegisterSuccess from "./pages/RegisterSuccess";
+import MyPage from "./pages/MyPage";
+
+// Admin pages
+import AdminDashboard from "./pages/admin/Dashboard";
+import AdminMembers from "./pages/admin/Members";
+import AdminMemberDetail from "./pages/admin/MemberDetail";
+import AdminCoupons from "./pages/admin/Coupons";
+import AdminAnalytics from "./pages/admin/Analytics";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+      {/* Public */}
+      <Route path="/" component={Home} />
+      <Route path="/register" component={Register} />
+      <Route path="/register/success" component={RegisterSuccess} />
+      <Route path="/mypage" component={MyPage} />
+
+      {/* Admin */}
+      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/members" component={AdminMembers} />
+      <Route path="/admin/members/:id" component={AdminMemberDetail} />
+      <Route path="/admin/coupons" component={AdminCoupons} />
+      <Route path="/admin/analytics" component={AdminAnalytics} />
+
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <Toaster />
+          <Toaster position="top-right" richColors />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

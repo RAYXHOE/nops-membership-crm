@@ -1,28 +1,523 @@
 import { COOKIE_NAME } from "@shared/const";
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import {
+  createConsentLog,
+  createMember,
+  createPurchase,
+  createVisit,
+  deletePurchase,
+  deleteVisit,
+  getCouponByCode,
+  getCouponsByMemberId,
+  getCouponStats,
+  getCouponTemplateByType,
+  getConsentLogsByMemberId,
+  getMemberByEmail,
+  getMemberById,
+  getMemberStats,
+  getMembersWithBirthdayToday,
+  getPurchaseStats,
+  getPurchasesByMemberId,
+  getVisitsByMemberId,
+  issueCoupon,
+  listAllCoupons,
+  listCouponTemplates,
+  listMembers,
+  updateMember,
+  updatePurchase,
+  updateVisit,
+  useCoupon,
+  expireOverdueCoupons,
+} from "./db";
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function generateCouponCode(prefix: string): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = prefix + "-";
+  for (let i = 0; i < 8; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+const PRIVACY_CONSENT_TEXT = `개인정보 수집·이용 동의서
+
+수집 항목: 이름, 이메일, 전화번호, 생년월일
+수집 목적: 멤버십 서비스 제공, 쿠폰 발급 및 관리
+보유 기간: 회원 탈퇴 후 5년 (관계 법령에 따름)
+제3자 제공: 없음
+
+위 내용에 동의하지 않으실 경우 멤버십 가입이 제한될 수 있습니다.`;
+
+const MARKETING_CONSENT_TEXT = `마케팅 정보 수신 동의서
+
+수신 항목: 신메뉴 안내, 이벤트 정보, 프로모션 혜택
+수신 방법: 이메일, SMS
+보유 기간: 동의 철회 시까지
+동의 거부 시 불이익: 마케팅 정보 수신이 제한되나, 기본 멤버십 혜택은 유지됩니다.`;
+
+// ─── Admin Middleware ─────────────────────────────────────────────────────────
+const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "관리자 권한이 필요합니다." });
+  }
+  return next({ ctx });
+});
+
+// ─── Router ───────────────────────────────────────────────────────────────────
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
+    me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  // ─── Public: 멤버십 가입 ────────────────────────────────────────────────────
+  membership: router({
+    register: publicProcedure
+      .input(
+        z.object({
+          name: z.string().min(1).max(100),
+          email: z.string().email(),
+          phone: z.string().min(9).max(20),
+          birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          privacyConsent: z.boolean(),
+          marketingConsent: z.boolean(),
+          ipAddress: z.string().optional(),
+          userAgent: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        if (!input.privacyConsent) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "개인정보 수집 동의는 필수입니다.",
+          });
+        }
+
+        // 중복 이메일 체크
+        const existing = await getMemberByEmail(input.email);
+        if (existing) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "이미 가입된 이메일입니다.",
+          });
+        }
+
+        const now = new Date();
+
+        // 회원 생성
+        await createMember({
+          name: input.name,
+          email: input.email,
+          phone: input.phone,
+          birthDate: new Date(input.birthDate),
+          privacyConsent: true,
+          privacyConsentAt: now,
+          privacyConsentContent: PRIVACY_CONSENT_TEXT,
+          marketingConsent: input.marketingConsent,
+          marketingConsentAt: input.marketingConsent ? now : undefined,
+          marketingConsentContent: input.marketingConsent ? MARKETING_CONSENT_TEXT : undefined,
+          status: "active",
+          joinedAt: now,
+        });
+
+        const member = await getMemberByEmail(input.email);
+        if (!member) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+        // 동의 기록 저장
+        await createConsentLog({
+          memberId: member.id,
+          consentType: "privacy",
+          agreed: true,
+          consentContent: PRIVACY_CONSENT_TEXT,
+          ipAddress: input.ipAddress,
+          userAgent: input.userAgent,
+        });
+
+        if (input.marketingConsent) {
+          await createConsentLog({
+            memberId: member.id,
+            consentType: "marketing",
+            agreed: true,
+            consentContent: MARKETING_CONSENT_TEXT,
+            ipAddress: input.ipAddress,
+            userAgent: input.userAgent,
+          });
+        }
+
+        // 가입 기념 쿠폰 2종 자동 발급
+        const [discountTemplate, corkageTemplate] = await Promise.all([
+          getCouponTemplateByType("discount_percent"),
+          getCouponTemplateByType("corkage_free"),
+        ]);
+
+        if (discountTemplate) {
+          const expiresAt = new Date(now);
+          expiresAt.setDate(expiresAt.getDate() + discountTemplate.validDays);
+          await issueCoupon({
+            memberId: member.id,
+            templateId: discountTemplate.id,
+            code: generateCouponCode("NOBS"),
+            type: "discount_percent",
+            discountPercent: discountTemplate.discountPercent,
+            name: discountTemplate.name,
+            description: discountTemplate.description,
+            expiresAt,
+          });
+        }
+
+        if (corkageTemplate) {
+          const expiresAt = new Date(now);
+          expiresAt.setDate(expiresAt.getDate() + corkageTemplate.validDays);
+          await issueCoupon({
+            memberId: member.id,
+            templateId: corkageTemplate.id,
+            code: generateCouponCode("CORK"),
+            type: "corkage_free",
+            name: corkageTemplate.name,
+            description: corkageTemplate.description,
+            expiresAt,
+          });
+        }
+
+        return { success: true, memberId: member.id };
+      }),
+
+    // 이메일로 회원 조회 (마이페이지 접근용)
+    getByEmail: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .query(async ({ input }) => {
+        const member = await getMemberByEmail(input.email);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
+        return member;
+      }),
+
+    // 고객 마이페이지: 쿠폰 조회
+    getMyCoupons: publicProcedure
+      .input(z.object({ memberId: z.number() }))
+      .query(async ({ input }) => {
+        return getCouponsByMemberId(input.memberId);
+      }),
+  }),
+
+  // ─── Admin: 회원 관리 ───────────────────────────────────────────────────────
+  admin: router({
+    // 회원 목록
+    listMembers: adminProcedure
+      .input(
+        z.object({
+          search: z.string().optional(),
+          status: z.enum(["active", "inactive", "withdrawn"]).optional(),
+          limit: z.number().min(1).max(100).default(50),
+          offset: z.number().min(0).default(0),
+        })
+      )
+      .query(async ({ input }) => {
+        return listMembers(input);
+      }),
+
+    // 회원 상세
+    getMember: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const member = await getMemberById(input.id);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND" });
+        return member;
+      }),
+
+    // 회원 정보 수정
+    updateMember: adminProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          notes: z.string().optional(),
+          status: z.enum(["active", "inactive", "withdrawn"]).optional(),
+          marketingConsent: z.boolean().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { id, marketingConsent, ...data } = input;
+        // 마케팅 동의 변경 시 이력 기록
+        if (marketingConsent !== undefined) {
+          const existing = await getMemberById(id);
+          if (existing && existing.marketingConsent !== marketingConsent) {
+            const now = new Date();
+            await createConsentLog({
+              memberId: id,
+              consentType: marketingConsent ? "marketing" : "marketing_withdraw",
+              agreed: marketingConsent,
+              consentContent: MARKETING_CONSENT_TEXT,
+              ipAddress: undefined,
+              userAgent: "admin-update",
+            });
+            await updateMember(id, {
+              ...data,
+              marketingConsent,
+              marketingConsentAt: marketingConsent ? now : undefined,
+              marketingConsentContent: marketingConsent ? MARKETING_CONSENT_TEXT : undefined,
+            });
+            return { success: true };
+          }
+        }
+        await updateMember(id, { ...data, ...(marketingConsent !== undefined ? { marketingConsent } : {}) });
+        return { success: true };
+      }),
+
+    // 동의 기록 조회
+    getConsentLogs: adminProcedure
+      .input(z.object({ memberId: z.number() }))
+      .query(async ({ input }) => {
+        return getConsentLogsByMemberId(input.memberId);
+      }),
+
+    // ─── 쿠폰 관리 ──────────────────────────────────────────────────────────
+    listCoupons: adminProcedure
+      .input(
+        z.object({
+          memberId: z.number().optional(),
+          status: z.enum(["active", "used", "expired"]).optional(),
+          limit: z.number().min(1).max(100).default(50),
+          offset: z.number().min(0).default(0),
+        })
+      )
+      .query(async ({ input }) => {
+        return listAllCoupons(input);
+      }),
+
+    issueCoupon: adminProcedure
+      .input(
+        z.object({
+          memberId: z.number(),
+          type: z.enum(["discount_percent", "corkage_free", "birthday"]),
+          validDays: z.number().min(1).default(365),
+          note: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const template = await getCouponTemplateByType(input.type);
+        if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "쿠폰 템플릿을 찾을 수 없습니다." });
+
+        const now = new Date();
+        const expiresAt = new Date(now);
+        expiresAt.setDate(expiresAt.getDate() + input.validDays);
+
+        const prefix = input.type === "discount_percent" ? "NOBS" : input.type === "corkage_free" ? "CORK" : "BDAY";
+
+        await issueCoupon({
+          memberId: input.memberId,
+          templateId: template.id,
+          code: generateCouponCode(prefix),
+          type: input.type,
+          discountPercent: template.discountPercent,
+          name: template.name,
+          description: input.note ?? template.description,
+          expiresAt,
+          birthdayYear: input.type === "birthday" ? now.getFullYear() : undefined,
+        });
+
+        return { success: true };
+      }),
+
+    useCoupon: adminProcedure
+      .input(
+        z.object({
+          couponId: z.number().optional(),
+          couponCode: z.string().optional(),
+          note: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        let couponId = input.couponId;
+
+        if (!couponId && input.couponCode) {
+          const coupon = await getCouponByCode(input.couponCode);
+          if (!coupon) throw new TRPCError({ code: "NOT_FOUND", message: "쿠폰을 찾을 수 없습니다." });
+          if (coupon.status !== "active") {
+            throw new TRPCError({ code: "BAD_REQUEST", message: `이미 ${coupon.status === "used" ? "사용된" : "만료된"} 쿠폰입니다.` });
+          }
+          couponId = coupon.id;
+        }
+
+        if (!couponId) throw new TRPCError({ code: "BAD_REQUEST", message: "쿠폰 ID 또는 코드가 필요합니다." });
+
+        await useCoupon(couponId, ctx.user.id, input.note);
+        return { success: true };
+      }),
+
+    listCouponTemplates: adminProcedure.query(async () => {
+      return listCouponTemplates();
+    }),
+
+    expireCoupons: adminProcedure.mutation(async () => {
+      await expireOverdueCoupons();
+      return { success: true };
+    }),
+
+    // ─── 방문 기록 ──────────────────────────────────────────────────────────
+    getVisits: adminProcedure
+      .input(z.object({ memberId: z.number() }))
+      .query(async ({ input }) => {
+        return getVisitsByMemberId(input.memberId);
+      }),
+
+    addVisit: adminProcedure
+      .input(
+        z.object({
+          memberId: z.number(),
+          visitedAt: z.string(),
+          partySize: z.number().min(1).optional(),
+          notes: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        await createVisit({
+          memberId: input.memberId,
+          visitedAt: new Date(input.visitedAt),
+          partySize: input.partySize,
+          notes: input.notes,
+          recordedByStaffId: ctx.user.id,
+        });
+        return { success: true };
+      }),
+
+    updateVisit: adminProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          visitedAt: z.string().optional(),
+          partySize: z.number().min(1).optional(),
+          notes: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { id, visitedAt, ...rest } = input;
+        await updateVisit(id, {
+          ...rest,
+          ...(visitedAt ? { visitedAt: new Date(visitedAt) } : {}),
+        });
+        return { success: true };
+      }),
+
+    deleteVisit: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteVisit(input.id);
+        return { success: true };
+      }),
+
+    // ─── 구매 이력 ──────────────────────────────────────────────────────────
+    getPurchases: adminProcedure
+      .input(z.object({ memberId: z.number() }))
+      .query(async ({ input }) => {
+        return getPurchasesByMemberId(input.memberId);
+      }),
+
+    addPurchase: adminProcedure
+      .input(
+        z.object({
+          memberId: z.number(),
+          visitId: z.number().optional(),
+          amount: z.number().positive(),
+          discountAmount: z.number().min(0).default(0),
+          finalAmount: z.number().positive(),
+          couponId: z.number().optional(),
+          memo: z.string().optional(),
+          purchasedAt: z.string(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        await createPurchase({
+          memberId: input.memberId,
+          visitId: input.visitId,
+          amount: String(input.amount),
+          discountAmount: String(input.discountAmount),
+          finalAmount: String(input.finalAmount),
+          couponId: input.couponId,
+          memo: input.memo,
+          purchasedAt: new Date(input.purchasedAt),
+          recordedByStaffId: ctx.user.id,
+        });
+        return { success: true };
+      }),
+
+    updatePurchase: adminProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          amount: z.number().positive().optional(),
+          discountAmount: z.number().min(0).optional(),
+          finalAmount: z.number().positive().optional(),
+          memo: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { id, amount, discountAmount, finalAmount, ...rest } = input;
+        await updatePurchase(id, {
+          ...rest,
+          ...(amount !== undefined ? { amount: String(amount) } : {}),
+          ...(discountAmount !== undefined ? { discountAmount: String(discountAmount) } : {}),
+          ...(finalAmount !== undefined ? { finalAmount: String(finalAmount) } : {}),
+        });
+        return { success: true };
+      }),
+
+    deletePurchase: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deletePurchase(input.id);
+        return { success: true };
+      }),
+
+    // ─── 데이터 분석 ─────────────────────────────────────────────────────────
+    getAnalytics: adminProcedure.query(async () => {
+      const [memberStats, couponStats, purchaseStats] = await Promise.all([
+        getMemberStats(),
+        getCouponStats(),
+        getPurchaseStats(),
+      ]);
+      return { memberStats, couponStats, purchaseStats };
+    }),
+
+    // 생일 쿠폰 수동 발급 (스케줄러 대용)
+    issueBirthdayCoupons: adminProcedure.mutation(async () => {
+      const birthdayMembers = await getMembersWithBirthdayToday();
+      const template = await getCouponTemplateByType("birthday");
+      if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "생일 쿠폰 템플릿이 없습니다." });
+
+      const now = new Date();
+      const year = now.getFullYear();
+      let issued = 0;
+
+      for (const member of birthdayMembers) {
+        const expiresAt = new Date(now);
+        expiresAt.setDate(expiresAt.getDate() + template.validDays);
+        await issueCoupon({
+          memberId: member.id,
+          templateId: template.id,
+          code: generateCouponCode("BDAY"),
+          type: "birthday",
+          discountPercent: template.discountPercent,
+          name: template.name,
+          description: template.description,
+          expiresAt,
+          birthdayYear: year,
+        });
+        issued++;
+      }
+
+      return { success: true, issued };
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
