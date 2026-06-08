@@ -33,6 +33,7 @@ import {
   useCoupon,
   expireOverdueCoupons,
 } from "./db";
+import { sendWelcomeEmail } from "./email";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -167,7 +168,7 @@ export const appRouter = router({
           await issueCoupon({
             memberId: member.id,
             templateId: discountTemplate.id,
-            code: generateCouponCode("NOBS"),
+            code: generateCouponCode("NOPS"),
             type: "discount_percent",
             discountPercent: discountTemplate.discountPercent,
             name: discountTemplate.name,
@@ -189,6 +190,19 @@ export const appRouter = router({
             expiresAt,
           });
         }
+
+        // 발급된 쿠폰 목록 조회 후 환영 이메일 발송 (비동기, 실패해도 가입은 성공)
+        const issuedCoupons = await getCouponsByMemberId(member.id);
+        sendWelcomeEmail({
+          to: member.email,
+          name: member.name,
+          coupons: issuedCoupons.map((c) => ({
+            name: c.name,
+            code: c.code,
+            discountPercent: c.discountPercent,
+            expiresAt: c.expiresAt,
+          })),
+        }).catch((err) => console.error("[Email] Welcome email failed:", err));
 
         return { success: true, memberId: member.id };
       }),
@@ -311,7 +325,7 @@ export const appRouter = router({
         const expiresAt = new Date(now);
         expiresAt.setDate(expiresAt.getDate() + input.validDays);
 
-        const prefix = input.type === "discount_percent" ? "NOBS" : input.type === "corkage_free" ? "CORK" : "BDAY";
+        const prefix = input.type === "discount_percent" ? "NOPS" : input.type === "corkage_free" ? "CORK" : "BDAY";
 
         await issueCoupon({
           memberId: input.memberId,

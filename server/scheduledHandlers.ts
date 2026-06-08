@@ -5,6 +5,7 @@ import {
   getCouponTemplateByType,
   issueCoupon,
 } from "./db";
+import { sendBirthdayEmail } from "./email";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -42,10 +43,11 @@ export async function birthdayCouponHandler(req: Request, res: Response) {
       const expiresAt = new Date(now);
       expiresAt.setDate(expiresAt.getDate() + template.validDays);
 
+      const couponCode = generateCouponCode("BDAY");
       await issueCoupon({
         memberId: member.id,
         templateId: template.id,
-        code: generateCouponCode("BDAY"),
+        code: couponCode,
         type: "birthday",
         discountPercent: template.discountPercent,
         name: template.name,
@@ -53,6 +55,16 @@ export async function birthdayCouponHandler(req: Request, res: Response) {
         expiresAt,
         birthdayYear: year,
       });
+      // 생일 이메일 발송 (비동기)
+      if (member.email) {
+        sendBirthdayEmail({
+          to: member.email,
+          name: member.name ?? "고객",
+          couponCode,
+          discountPercent: template.discountPercent ?? 15,
+          expiresAt,
+        }).catch((err) => console.error("[Email] Birthday email failed:", err));
+      }
       issued++;
     }
 

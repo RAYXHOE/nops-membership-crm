@@ -20,16 +20,16 @@ export default function RegisterSuccess() {
           </div>
         </div>
 
-        <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3">Welcome</p>
-        <h1
-          className="text-3xl font-bold text-foreground mb-4"
-          style={{ fontFamily: "'Playfair Display', serif" }}
-        >
+        <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3 font-semibold">Welcome</p>
+        <h1 className="text-3xl font-extrabold text-foreground mb-4">
           가입을 환영합니다!
         </h1>
-        <p className="text-muted-foreground text-sm leading-relaxed mb-10" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
-          NOBS 멤버십에 가입해 주셔서 감사합니다.<br />
-          아래 혜택 쿠폰이 즉시 발급되었습니다.
+        <p className="text-muted-foreground text-sm leading-relaxed mb-2">
+          NOPS Steak House 멤버십에 가입해 주셔서 감사합니다.
+        </p>
+        <p className="text-muted-foreground text-sm leading-relaxed mb-10">
+          아래 혜택 쿠폰이 즉시 발급되었으며,<br />
+          가입하신 이메일로 쿠폰 안내 메일이 발송됩니다.
         </p>
 
         {/* Issued coupons */}
@@ -39,7 +39,7 @@ export default function RegisterSuccess() {
               <Gift className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">가입 기념 10% 할인 쿠폰</p>
+              <p className="text-sm font-bold text-foreground">가입 기념 10% 할인 쿠폰</p>
               <p className="text-xs text-muted-foreground">발급 완료 · 마이페이지에서 확인</p>
             </div>
           </div>
@@ -48,7 +48,7 @@ export default function RegisterSuccess() {
               <Gift className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">콜키지 프리 쿠폰</p>
+              <p className="text-sm font-bold text-foreground">콜키지 프리 쿠폰</p>
               <p className="text-xs text-muted-foreground">발급 완료 · 마이페이지에서 확인</p>
             </div>
           </div>
@@ -57,7 +57,7 @@ export default function RegisterSuccess() {
               <Star className="w-5 h-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">생일 15% 할인 쿠폰</p>
+              <p className="text-sm font-bold text-foreground">생일 15% 할인 쿠폰</p>
               <p className="text-xs text-muted-foreground">매년 생일에 자동 발급 예정</p>
             </div>
           </div>
@@ -65,7 +65,7 @@ export default function RegisterSuccess() {
 
         <div className="flex flex-col gap-3">
           <Link href={`/mypage${memberId ? `?memberId=${memberId}` : ""}`}>
-            <Button className="w-full h-12 text-sm tracking-wider gap-2">
+            <Button className="w-full h-12 text-sm tracking-wider gap-2 font-semibold">
               내 쿠폰 확인하기
               <ArrowRight className="w-4 h-4" />
             </Button>

@@ -66,7 +66,7 @@ export default function AdminCoupons() {
             <Tag className="w-5 h-5 text-primary" />
             <p className="text-xs text-primary tracking-widest uppercase">Coupons</p>
           </div>
-          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-2xl font-bold text-foreground">
             쿠폰 관리
           </h1>
           <p className="text-sm text-muted-foreground mt-1">총 {total.toLocaleString()}건</p>

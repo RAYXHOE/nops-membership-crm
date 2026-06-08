@@ -81,7 +81,7 @@ export default function AdminAnalytics() {
             <BarChart3 className="w-5 h-5 text-primary" />
             <p className="text-xs text-primary tracking-widest uppercase">Analytics</p>
           </div>
-          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-2xl font-bold text-foreground">
             데이터 분석
           </h1>
         </div>

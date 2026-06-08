@@ -67,8 +67,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Crown className="w-4 h-4 text-sidebar" />
             </div>
             <div>
-              <p className="text-sidebar-foreground font-semibold tracking-wider text-sm uppercase">NOBS</p>
-              <p className="text-sidebar-foreground/50 text-xs tracking-widest">Membership CRM</p>
+              <p className="text-sidebar-foreground font-bold tracking-wider text-sm uppercase">NOPS</p>
+              <p className="text-sidebar-foreground/50 text-xs">Steak House CRM</p>
             </div>
           </div>
         </div>

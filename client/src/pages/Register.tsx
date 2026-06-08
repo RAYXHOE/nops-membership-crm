@@ -99,7 +99,8 @@ export default function Register() {
           </Link>
           <div className="flex items-center gap-2 mx-auto">
             <Crown className="w-5 h-5 text-primary" />
-            <span className="font-semibold tracking-widest text-sm uppercase">NOBS</span>
+            <span className="font-bold tracking-widest text-sm uppercase">NOPS</span>
+            <span className="text-muted-foreground text-xs hidden sm:inline">Steak House</span>
           </div>
         </div>
       </header>
@@ -107,14 +108,11 @@ export default function Register() {
       <div className="container py-16 max-w-lg">
         {/* Title */}
         <div className="text-center mb-12">
-          <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3">Join Us</p>
-          <h1
-            className="text-3xl font-bold text-foreground mb-3"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
+          <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3 font-semibold">Join Us</p>
+          <h1 className="text-3xl font-extrabold text-foreground mb-3">
             멤버십 가입
           </h1>
-          <p className="text-muted-foreground text-sm" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+          <p className="text-muted-foreground text-sm">
             가입 즉시 10% 할인 쿠폰과 콜키지 프리 쿠폰이 발급됩니다
           </p>
         </div>
@@ -123,71 +121,41 @@ export default function Register() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="bg-card rounded-2xl border border-border/50 p-8 space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium text-foreground">
+              <Label htmlFor="name" className="text-sm font-semibold text-foreground">
                 이름 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="name"
-                placeholder="홍길동"
-                {...register("name")}
-                className="h-11"
-              />
-              {errors.name && (
-                <p className="text-destructive text-xs">{errors.name.message}</p>
-              )}
+              <Input id="name" placeholder="홍길동" {...register("name")} className="h-11" />
+              {errors.name && <p className="text-destructive text-xs">{errors.name.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-foreground">
+              <Label htmlFor="email" className="text-sm font-semibold text-foreground">
                 이메일 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="example@email.com"
-                {...register("email")}
-                className="h-11"
-              />
-              {errors.email && (
-                <p className="text-destructive text-xs">{errors.email.message}</p>
-              )}
+              <Input id="email" type="email" placeholder="example@email.com" {...register("email")} className="h-11" />
+              {errors.email && <p className="text-destructive text-xs">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-sm font-medium text-foreground">
+              <Label htmlFor="phone" className="text-sm font-semibold text-foreground">
                 전화번호 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="010-0000-0000"
-                {...register("phone")}
-                className="h-11"
-              />
-              {errors.phone && (
-                <p className="text-destructive text-xs">{errors.phone.message}</p>
-              )}
+              <Input id="phone" type="tel" placeholder="010-0000-0000" {...register("phone")} className="h-11" />
+              {errors.phone && <p className="text-destructive text-xs">{errors.phone.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="birthDate" className="text-sm font-medium text-foreground">
+              <Label htmlFor="birthDate" className="text-sm font-semibold text-foreground">
                 생년월일 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="birthDate"
-                type="date"
-                {...register("birthDate")}
-                className="h-11"
-              />
-              {errors.birthDate && (
-                <p className="text-destructive text-xs">{errors.birthDate.message}</p>
-              )}
+              <Input id="birthDate" type="date" {...register("birthDate")} className="h-11" />
+              {errors.birthDate && <p className="text-destructive text-xs">{errors.birthDate.message}</p>}
             </div>
           </div>
 
           {/* Consent */}
           <div className="bg-card rounded-2xl border border-border/50 p-8 space-y-4">
-            <h3 className="text-sm font-semibold text-foreground mb-4">약관 동의</h3>
+            <h3 className="text-sm font-bold text-foreground mb-4">약관 동의</h3>
 
             {/* Privacy */}
             <div className="flex items-start gap-3">
@@ -199,35 +167,25 @@ export default function Register() {
               />
               <div className="flex-1">
                 <label htmlFor="privacyConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1">
-                  <span className="text-destructive text-xs font-medium">[필수]</span>
+                  <span className="text-destructive text-xs font-semibold">[필수]</span>
                   개인정보 수집·이용 동의
                 </label>
                 <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
                   <DialogTrigger asChild>
-                    <button type="button" className="text-xs text-primary underline mt-0.5 hover:opacity-70">
-                      내용 보기
-                    </button>
+                    <button type="button" className="text-xs text-primary underline mt-0.5 hover:opacity-70">내용 보기</button>
                   </DialogTrigger>
                   <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>개인정보 수집·이용 동의서</DialogTitle>
-                    </DialogHeader>
+                    <DialogHeader><DialogTitle>개인정보 수집·이용 동의서</DialogTitle></DialogHeader>
                     <ScrollArea className="h-64 mt-4">
-                      <pre className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed font-sans">
-                        {PRIVACY_TEXT}
-                      </pre>
+                      <pre className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed font-sans">{PRIVACY_TEXT}</pre>
                     </ScrollArea>
-                    <Button onClick={() => { setValue("privacyConsent", true); setPrivacyOpen(false); }} className="mt-2">
-                      동의합니다
-                    </Button>
+                    <Button onClick={() => { setValue("privacyConsent", true); setPrivacyOpen(false); }} className="mt-2">동의합니다</Button>
                   </DialogContent>
                 </Dialog>
               </div>
               {privacyConsent && <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
             </div>
-            {errors.privacyConsent && (
-              <p className="text-destructive text-xs ml-7">{errors.privacyConsent.message}</p>
-            )}
+            {errors.privacyConsent && <p className="text-destructive text-xs ml-7">{errors.privacyConsent.message}</p>}
 
             {/* Marketing */}
             <div className="flex items-start gap-3">
@@ -239,27 +197,19 @@ export default function Register() {
               />
               <div className="flex-1">
                 <label htmlFor="marketingConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1">
-                  <span className="text-muted-foreground text-xs font-medium">[선택]</span>
+                  <span className="text-muted-foreground text-xs font-semibold">[선택]</span>
                   마케팅 정보 수신 동의
                 </label>
                 <Dialog open={marketingOpen} onOpenChange={setMarketingOpen}>
                   <DialogTrigger asChild>
-                    <button type="button" className="text-xs text-primary underline mt-0.5 hover:opacity-70">
-                      내용 보기
-                    </button>
+                    <button type="button" className="text-xs text-primary underline mt-0.5 hover:opacity-70">내용 보기</button>
                   </DialogTrigger>
                   <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>마케팅 정보 수신 동의서</DialogTitle>
-                    </DialogHeader>
+                    <DialogHeader><DialogTitle>마케팅 정보 수신 동의서</DialogTitle></DialogHeader>
                     <ScrollArea className="h-64 mt-4">
-                      <pre className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed font-sans">
-                        {MARKETING_TEXT}
-                      </pre>
+                      <pre className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed font-sans">{MARKETING_TEXT}</pre>
                     </ScrollArea>
-                    <Button onClick={() => { setValue("marketingConsent", true); setMarketingOpen(false); }} className="mt-2">
-                      동의합니다
-                    </Button>
+                    <Button onClick={() => { setValue("marketingConsent", true); setMarketingOpen(false); }} className="mt-2">동의합니다</Button>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -267,26 +217,15 @@ export default function Register() {
             </div>
           </div>
 
-          <Button
-            type="submit"
-            className="w-full h-12 text-sm tracking-wider"
-            disabled={registerMutation.isPending}
-          >
+          <Button type="submit" className="w-full h-12 text-sm tracking-wider font-semibold" disabled={registerMutation.isPending}>
             {registerMutation.isPending ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                가입 처리 중...
-              </>
-            ) : (
-              "멤버십 가입 완료"
-            )}
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />가입 처리 중...</>
+            ) : "멤버십 가입 완료"}
           </Button>
 
-          <p className="text-center text-xs text-muted-foreground" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+          <p className="text-center text-xs text-muted-foreground">
             이미 회원이신가요?{" "}
-            <Link href="/mypage">
-              <span className="text-primary underline cursor-pointer">마이페이지 바로가기</span>
-            </Link>
+            <Link href="/mypage"><span className="text-primary underline cursor-pointer">마이페이지 바로가기</span></Link>
           </p>
         </form>
       </div>

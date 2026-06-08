@@ -32,3 +32,9 @@
 - [x] 회원 가입 + 쿠폰 자동 발급 vitest
 - [x] 쿠폰 사용 처리 vitest
 - [x] 권한 분리 vitest
+
+## 브랜드 수정 & 이메일 연동
+- [x] 전체 브랜드명 NOBS → NOPS Steak House 수정 (UI, 메타, DB 데이터)
+- [x] 폰트 Noto Serif KR + Playfair Display → Noto Sans KR 고딕체로 전환
+- [x] 이메일 발송 연동 (가입 환영 이메일 + 쿠폰 코드 포함, 생일 쿠폰 이메일 포함)
+- [x] 이메일 발송 vitest 추가 (4개 테스트 통과)

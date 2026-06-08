@@ -28,7 +28,10 @@ export default function Home() {
         <div className="container flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
             <Crown className="w-5 h-5 text-primary" />
-            <span className="font-semibold tracking-widest text-sm uppercase text-foreground">NOBS</span>
+            <div>
+              <span className="font-bold tracking-widest text-sm uppercase text-foreground">NOPS</span>
+              <span className="text-muted-foreground text-xs ml-1.5 hidden sm:inline">Steak House</span>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/mypage">
@@ -50,29 +53,26 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/30 pointer-events-none" />
         <div className="container relative py-28 lg:py-40">
           <div className="max-w-2xl">
-            <p className="text-primary text-xs tracking-[0.3em] uppercase mb-6 font-medium">
-              Exclusive Membership
+            <p className="text-primary text-xs tracking-[0.3em] uppercase mb-6 font-semibold">
+              NOPS Steak House — Exclusive Membership
             </p>
-            <h1
-              className="text-5xl lg:text-6xl font-bold text-foreground leading-[1.1] mb-6"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
+            <h1 className="text-5xl lg:text-6xl font-extrabold text-foreground leading-[1.15] mb-6">
               놉스에서 누리는<br />
-              <em className="not-italic text-primary">특별한 혜택</em>
+              <span className="text-primary">특별한 혜택</span>
             </h1>
-            <p className="text-muted-foreground text-lg leading-relaxed mb-10 font-light" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+            <p className="text-muted-foreground text-lg leading-relaxed mb-10 font-light">
               멤버십 가입 즉시 할인 쿠폰과 콜키지 프리 혜택을 받으세요.<br />
               매년 생일에는 특별한 15% 할인 쿠폰이 자동으로 발급됩니다.
             </p>
             <div className="flex flex-wrap gap-4">
               <Link href="/register">
-                <Button size="lg" className="px-8 py-6 text-sm tracking-wider gap-2">
+                <Button size="lg" className="px-8 py-6 text-sm tracking-wider gap-2 font-semibold">
                   지금 가입하기
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </Link>
               <Link href="/mypage">
-                <Button variant="outline" size="lg" className="px-8 py-6 text-sm tracking-wider bg-card">
+                <Button variant="outline" size="lg" className="px-8 py-6 text-sm tracking-wider bg-card font-medium">
                   내 쿠폰 확인
                 </Button>
               </Link>
@@ -85,8 +85,8 @@ export default function Home() {
       <section className="py-24 bg-card/50">
         <div className="container">
           <div className="text-center mb-16">
-            <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3">Member Benefits</p>
-            <h2 className="text-3xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3 font-semibold">Member Benefits</p>
+            <h2 className="text-3xl font-bold text-foreground">
               멤버십 혜택 안내
             </h2>
           </div>
@@ -99,10 +99,8 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
                   <b.icon className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-3">{b.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
-                  {b.desc}
-                </p>
+                <h3 className="text-lg font-bold text-foreground mb-3">{b.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{b.desc}</p>
               </div>
             ))}
           </div>
@@ -116,20 +114,17 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent pointer-events-none" />
             <div className="relative">
               <Crown className="w-10 h-10 text-primary mx-auto mb-6" />
-              <h2
-                className="text-3xl lg:text-4xl font-bold text-background mb-4"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
+              <h2 className="text-3xl lg:text-4xl font-extrabold text-background mb-4">
                 지금 바로 시작하세요
               </h2>
-              <p className="text-background/60 mb-8 text-sm" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+              <p className="text-background/60 mb-8 text-sm">
                 가입 즉시 2가지 쿠폰이 자동으로 발급됩니다
               </p>
               <Link href="/register">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="bg-background text-foreground hover:bg-background/90 px-10 py-6 text-sm tracking-wider border-0"
+                  className="bg-background text-foreground hover:bg-background/90 px-10 py-6 text-sm tracking-wider border-0 font-semibold"
                 >
                   무료 멤버십 가입
                 </Button>
@@ -144,10 +139,10 @@ export default function Home() {
         <div className="container flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Crown className="w-4 h-4 text-primary" />
-            <span className="text-sm text-muted-foreground tracking-wider">NOBS Membership</span>
+            <span className="text-sm text-muted-foreground font-medium">NOPS Steak House Membership</span>
           </div>
-          <p className="text-xs text-muted-foreground" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
-            © 2025 NOBS. All rights reserved.
+          <p className="text-xs text-muted-foreground">
+            © 2025 NOPS Steak House. All rights reserved.
           </p>
         </div>
       </footer>

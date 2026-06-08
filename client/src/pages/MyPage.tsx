@@ -88,7 +88,7 @@ export default function MyPage() {
           </Link>
           <div className="flex items-center gap-2 mx-auto">
             <Crown className="w-5 h-5 text-primary" />
-            <span className="font-semibold tracking-widest text-sm uppercase">NOBS</span>
+            <span className="font-bold tracking-widest text-sm uppercase">NOPS</span>
           </div>
         </div>
       </header>
@@ -96,7 +96,7 @@ export default function MyPage() {
       <div className="container py-12 max-w-2xl">
         <div className="text-center mb-10">
           <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3">My Page</p>
-          <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-3xl font-bold text-foreground">
             내 쿠폰
           </h1>
         </div>
@@ -104,7 +104,7 @@ export default function MyPage() {
         {/* Email Search */}
         {!member && (
           <div className="bg-card rounded-2xl border border-border/50 p-8 mb-8">
-            <p className="text-sm text-muted-foreground mb-4 text-center" style={{ fontFamily: "'Noto Sans KR', sans-serif" }}>
+            <p className="text-sm text-muted-foreground mb-4 text-center">
               가입 시 등록한 이메일로 쿠폰을 조회하세요
             </p>
             <form onSubmit={handleSearch} className="flex gap-3">
@@ -211,7 +211,7 @@ export default function MyPage() {
       <Dialog open={!!selectedCoupon} onOpenChange={() => setSelectedCoupon(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-center" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <DialogTitle className="text-center">
               {selectedCoupon?.name}
             </DialogTitle>
           </DialogHeader>
