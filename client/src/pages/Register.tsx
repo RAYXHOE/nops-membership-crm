@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Crown, ArrowLeft, Loader2, CheckCircle2, ChevronDown } from "lucide-react";
+import { Crown, ArrowLeft, Loader2, CheckCircle2, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -141,16 +141,34 @@ export default function Register() {
           <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3 font-semibold">Join Us</p>
           <h1 className="text-3xl font-extrabold text-foreground mb-3">멤버십 가입</h1>
           <p className="text-muted-foreground text-sm">
-            가입 즉시 <span className="text-primary font-semibold">10% 할인 쿠폰</span>과 <span className="text-primary font-semibold">콜키지 프리 쿠폰</span>이 발급됩니다
+            가입 즉시 <span className="text-primary font-semibold">콜키지 프리 쿠폰</span>이 발급됩니다. 마케팅 동의 시 <span className="text-primary font-semibold">10% 할인 + 생일 쿠폰</span> 추가 증정
           </p>
         </div>
 
         {/* 혜택 요약 배너 */}
-        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-8 flex items-center gap-4">
-          <Crown className="w-8 h-8 text-primary shrink-0" />
-          <div className="text-sm">
-            <p className="font-bold text-foreground mb-0.5">가입 즉시 2가지 쿠폰 자동 발급</p>
-            <p className="text-muted-foreground text-xs">10% 할인 쿠폰 · 콜키지 프리 쿠폰 · 매년 생일 15% 쿠폰</p>
+        <div className="space-y-3 mb-8">
+          {/* 기본 혜택 */}
+          <div className="bg-card border border-border/50 rounded-xl p-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Gift className="w-5 h-5 text-primary" />
+            </div>
+            <div className="text-sm">
+              <p className="font-bold text-foreground mb-0.5">기본 가입 혜택 (모든 회원)</p>
+              <p className="text-muted-foreground text-xs">콜키지 프리 쿠폰 즉시 발급</p>
+            </div>
+          </div>
+          {/* 마케팅 동의 추가 혜택 */}
+          <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+              <Crown className="w-5 h-5 text-primary" />
+            </div>
+            <div className="text-sm flex-1">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="font-bold text-foreground">마케팅 동의 시 추가 혜택</p>
+                <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-semibold">+2가지</span>
+              </div>
+              <p className="text-muted-foreground text-xs">10% 할인 쿠폰 + 생일 15% 할인 쿠폰 즉시 발급</p>
+            </div>
           </div>
         </div>
 
@@ -299,10 +317,10 @@ export default function Register() {
                   className="mt-0.5"
                 />
                 <div className="flex-1">
-                  <label htmlFor="marketingConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1">
+                  <label htmlFor="marketingConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1 flex-wrap">
                     <span className="text-muted-foreground text-xs font-semibold">[선택]</span>
                     마케팅 정보 수신 동의
-                    <span className="text-xs text-muted-foreground ml-1">(신메뉴·이벤트 안내)</span>
+                    <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full border border-primary/20 ml-1">+10% 할인 쿠폰 · 생일 쿠폰</span>
                   </label>
                   <Dialog open={marketingOpen} onOpenChange={setMarketingOpen}>
                     <DialogTrigger asChild>

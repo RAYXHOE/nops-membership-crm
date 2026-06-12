@@ -5,18 +5,21 @@ import { Button } from "@/components/ui/button";
 const benefits = [
   {
     icon: Gift,
-    title: "가입 즉시 혜택",
-    desc: "10% 할인 쿠폰 + 콜키지 프리 쿠폰 즉시 발급",
+    title: "기본 가입 혜택",
+    desc: "가입 즉시 콜키지 프리 쿠폰 발급",
+    tag: "",
   },
   {
     icon: Star,
-    title: "생일 특별 혜택",
-    desc: "매년 생일에 15% 할인 쿠폰 자동 증정",
+    title: "마케팅 동의 추가 혜택",
+    desc: "10% 할인 쿠폰 + 생일 15% 할인 쿠폰 즉시 발급",
+    tag: "동의 시",
   },
   {
     icon: Sparkles,
     title: "프리미엄 경험",
-    desc: "멤버 전용 혜택과 신메뉴 우선 안내",
+    desc: "신메뉴 우선 안내 및 이벤트 정보 제공",
+    tag: "동의 시",
   },
 ];
 
@@ -61,8 +64,8 @@ export default function Home() {
               <span className="text-primary">특별한 혜택</span>
             </h1>
             <p className="text-muted-foreground text-lg leading-relaxed mb-10 font-light">
-              멤버십 가입 즉시 할인 쿠폰과 콜키지 프리 혜택을 받으세요.<br />
-              매년 생일에는 특별한 15% 할인 쿠폰이 자동으로 발급됩니다.
+              가입 즉시 <strong className="text-foreground">콜키지 프리 쿠폰</strong>이 발급됩니다.<br />
+              마케팅 동의 시 <strong className="text-foreground">10% 할인 쿠폰 + 생일 15% 쿠폰</strong>도 함께 증정됩니다.
             </p>
             <div className="flex flex-wrap gap-4">
               <Link href="/register">
@@ -94,8 +97,13 @@ export default function Home() {
             {benefits.map((b, i) => (
               <div
                 key={i}
-                className="bg-card rounded-2xl p-8 border border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300 group"
+                className="bg-card rounded-2xl p-8 border border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300 group relative"
               >
+                {b.tag && (
+                  <span className="absolute top-4 right-4 text-xs bg-primary/10 text-primary font-semibold px-2.5 py-1 rounded-full border border-primary/20">
+                    {b.tag}
+                  </span>
+                )}
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
                   <b.icon className="w-6 h-6 text-primary" />
                 </div>

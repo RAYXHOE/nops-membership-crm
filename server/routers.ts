@@ -156,27 +156,17 @@ export const appRouter = router({
           });
         }
 
-        // 가입 기념 쿠폰 2종 자동 발급
-        const [discountTemplate, corkageTemplate] = await Promise.all([
+        // ─── 쿠폰 발급 로직 ─────────────────────────────────────────────────────
+        // 모든 회원: 콜키지 프리 쿠폰 (기본 혜택)
+        // 마케팅 동의 회원: 10% 할인 쿠폰 + 생일 15% 쿠폰 추가 발급
+
+        const [discountTemplate, corkageTemplate, birthdayTemplate] = await Promise.all([
           getCouponTemplateByType("discount_percent"),
           getCouponTemplateByType("corkage_free"),
+          getCouponTemplateByType("birthday"),
         ]);
 
-        if (discountTemplate) {
-          const expiresAt = new Date(now);
-          expiresAt.setDate(expiresAt.getDate() + discountTemplate.validDays);
-          await issueCoupon({
-            memberId: member.id,
-            templateId: discountTemplate.id,
-            code: generateCouponCode("NOPS"),
-            type: "discount_percent",
-            discountPercent: discountTemplate.discountPercent,
-            name: discountTemplate.name,
-            description: discountTemplate.description,
-            expiresAt,
-          });
-        }
-
+        // 기본 혜택: 콜키지 프리 (모든 회원)
         if (corkageTemplate) {
           const expiresAt = new Date(now);
           expiresAt.setDate(expiresAt.getDate() + corkageTemplate.validDays);
@@ -189,6 +179,41 @@ export const appRouter = router({
             description: corkageTemplate.description,
             expiresAt,
           });
+        }
+
+        // 마케팅 동의 시 추가 혜택: 10% 할인 쿠폰 + 생일 쿠폰
+        if (input.marketingConsent) {
+          if (discountTemplate) {
+            const expiresAt = new Date(now);
+            expiresAt.setDate(expiresAt.getDate() + discountTemplate.validDays);
+            await issueCoupon({
+              memberId: member.id,
+              templateId: discountTemplate.id,
+              code: generateCouponCode("NOPS"),
+              type: "discount_percent",
+              discountPercent: discountTemplate.discountPercent,
+              name: discountTemplate.name,
+              description: "마케팅 동의 감사 혜택 · " + (discountTemplate.description ?? ""),
+              expiresAt,
+            });
+          }
+
+          // 생일 쿠폰 즉시 발급 (올해분)
+          if (birthdayTemplate) {
+            const expiresAt = new Date(now);
+            expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
+            await issueCoupon({
+              memberId: member.id,
+              templateId: birthdayTemplate.id,
+              code: generateCouponCode("BDAY"),
+              type: "birthday",
+              discountPercent: birthdayTemplate.discountPercent,
+              name: birthdayTemplate.name,
+              description: "마케팅 동의 감사 혜택 · " + (birthdayTemplate.description ?? ""),
+              expiresAt,
+              birthdayYear: now.getFullYear(),
+            });
+          }
         }
 
         // 발급된 쿠폰 목록 조회 후 환영 이메일 발송 (비동기, 실패해도 가입은 성공)
