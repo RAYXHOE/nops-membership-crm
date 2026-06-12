@@ -247,6 +247,101 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return getCouponsByMemberId(input.memberId);
       }),
+
+    // 마케팅 동의 변경 (마이페이지에서 고객이 직접 변경)
+    updateMarketingConsent: publicProcedure
+      .input(
+        z.object({
+          memberId: z.number(),
+          email: z.string().email(), // 본인 확인용
+          agreed: z.boolean(),
+          userAgent: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        // 이메일로 회원 확인 (본인 검증)
+        const member = await getMemberById(input.memberId);
+        if (!member || member.email !== input.email) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "본인 확인에 실패했습니다." });
+        }
+
+        // 이미 같은 상태면 스킵
+        if (member.marketingConsent === input.agreed) {
+          return { success: true, couponsIssued: 0, alreadySame: true };
+        }
+
+        const now = new Date();
+
+        // 동의 상태 업데이트
+        await updateMember(input.memberId, {
+          marketingConsent: input.agreed,
+          marketingConsentAt: input.agreed ? now : undefined,
+          marketingConsentContent: input.agreed ? MARKETING_CONSENT_TEXT : undefined,
+        });
+
+        // 동의 이력 저장
+        await createConsentLog({
+          memberId: input.memberId,
+          consentType: input.agreed ? "marketing" : "marketing_withdraw",
+          agreed: input.agreed,
+          consentContent: MARKETING_CONSENT_TEXT,
+          ipAddress: undefined,
+          userAgent: input.userAgent,
+        });
+
+        let couponsIssued = 0;
+
+        // 동의 시: 10% 할인 쿠폰 + 생일 쿠폰 자동 발급 (미발급자만)
+        if (input.agreed) {
+          const existingCoupons = await getCouponsByMemberId(input.memberId);
+          const hasDiscount = existingCoupons.some((c) => c.type === "discount_percent");
+          const hasBirthday = existingCoupons.some(
+            (c) => c.type === "birthday" && c.birthdayYear === now.getFullYear()
+          );
+
+          const [discountTemplate, birthdayTemplate] = await Promise.all([
+            getCouponTemplateByType("discount_percent"),
+            getCouponTemplateByType("birthday"),
+          ]);
+
+          // 10% 할인 쿠폰 (아직 없는 경우만)
+          if (!hasDiscount && discountTemplate) {
+            const expiresAt = new Date(now);
+            expiresAt.setDate(expiresAt.getDate() + discountTemplate.validDays);
+            await issueCoupon({
+              memberId: input.memberId,
+              templateId: discountTemplate.id,
+              code: generateCouponCode("NOPS"),
+              type: "discount_percent",
+              discountPercent: discountTemplate.discountPercent,
+              name: discountTemplate.name,
+              description: "마케팅 동의 감사 혜택 · " + (discountTemplate.description ?? ""),
+              expiresAt,
+            });
+            couponsIssued++;
+          }
+
+          // 생일 쿠폰 (올해 미발급인 경우만)
+          if (!hasBirthday && birthdayTemplate) {
+            const expiresAt = new Date(now);
+            expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
+            await issueCoupon({
+              memberId: input.memberId,
+              templateId: birthdayTemplate.id,
+              code: generateCouponCode("BDAY"),
+              type: "birthday",
+              discountPercent: birthdayTemplate.discountPercent,
+              name: birthdayTemplate.name,
+              description: "마케팅 동의 감사 혜택 · " + (birthdayTemplate.description ?? ""),
+              expiresAt,
+              birthdayYear: now.getFullYear(),
+            });
+            couponsIssued++;
+          }
+        }
+
+        return { success: true, couponsIssued, alreadySame: false };
+      }),
   }),
 
   // ─── Admin: 회원 관리 ───────────────────────────────────────────────────────

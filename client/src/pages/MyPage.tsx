@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearch, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { Crown, ArrowLeft, Search, Gift, CheckCircle2, Clock, XCircle, QrCode, Copy, UserPlus } from "lucide-react";
+import { Crown, ArrowLeft, Search, Gift, CheckCircle2, Clock, XCircle, QrCode, Copy, UserPlus, Bell, BellOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,8 @@ export default function MyPage() {
     params.get("memberId") ? Number(params.get("memberId")) : null
   );
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+  const [consentConfirmOpen, setConsentConfirmOpen] = useState(false);
+  const utils = trpc.useUtils();
 
   const memberQuery = trpc.membership.getByEmail.useQuery(
     { email: searchEmail },
@@ -65,6 +67,22 @@ export default function MyPage() {
     navigator.clipboard.writeText(code);
     toast.success("쿠폰 코드가 복사되었습니다.");
   };
+
+  const marketingConsentMutation = trpc.membership.updateMarketingConsent.useMutation({
+    onSuccess: (data) => {
+      utils.membership.getByEmail.invalidate();
+      utils.membership.getMyCoupons.invalidate();
+      setConsentConfirmOpen(false);
+      if (data.alreadySame) {
+        toast.info("이미 동일한 상태입니다.");
+      } else if (data.couponsIssued > 0) {
+        toast.success(`마케팅 동의가 완료되었습니다. 쿠폰 ${data.couponsIssued}장이 발급되었습니다! 구쿠폰 목록에서 확인하세요.`);
+      } else {
+        toast.success("마케팅 수신 설정이 변경되었습니다.");
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -136,19 +154,106 @@ export default function MyPage() {
 
         {/* Member Info */}
         {member && (
-          <div className="bg-card rounded-2xl border border-primary/20 p-6 mb-8 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">회원</p>
-              <p className="font-bold text-foreground text-lg">{member.name}</p>
-              <p className="text-sm text-muted-foreground">{member.email}</p>
+          <div className="bg-card rounded-2xl border border-primary/20 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">회원</p>
+                <p className="font-bold text-foreground text-lg">{member.name}</p>
+                <p className="text-sm text-muted-foreground">{member.email}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground mb-1">사용 가능 쿠폰</p>
+                <p className="text-3xl font-extrabold text-primary">{activeCoupons.length}</p>
+                <p className="text-xs text-muted-foreground">장</p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground mb-1">사용 가능 쿠폰</p>
-              <p className="text-3xl font-extrabold text-primary">{activeCoupons.length}</p>
-              <p className="text-xs text-muted-foreground">장</p>
+
+            {/* 마케팅 동의 현황 */}
+            <div className={`flex items-center justify-between p-3 rounded-xl border ${
+              member.marketingConsent
+                ? "bg-primary/5 border-primary/20"
+                : "bg-muted/50 border-border/50"
+            }`}>
+              <div className="flex items-center gap-2.5">
+                {member.marketingConsent ? (
+                  <Bell className="w-4 h-4 text-primary" />
+                ) : (
+                  <BellOff className="w-4 h-4 text-muted-foreground" />
+                )}
+                <div>
+                  <p className="text-xs font-semibold text-foreground">마케팅 정보 수신</p>
+                  <p className="text-xs text-muted-foreground">
+                    {member.marketingConsent
+                      ? "신메뉴 · 이벤트 안내 수신 중"
+                      : "동의 시 10% 할인 + 생일 쿠폰 발급"}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant={member.marketingConsent ? "outline" : "default"}
+                className="text-xs h-8 shrink-0"
+                onClick={() => setConsentConfirmOpen(true)}
+              >
+                {member.marketingConsent ? "수신 철회" : "동의하고 쿠폰 받기"}
+              </Button>
             </div>
           </div>
         )}
+
+        {/* 마케팅 동의 확인 다이얼로그 */}
+        <Dialog open={consentConfirmOpen} onOpenChange={setConsentConfirmOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>
+                {member?.marketingConsent ? "마케팅 수신 철회" : "마케팅 정보 수신 동의"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              {member?.marketingConsent ? (
+                <p className="text-sm text-muted-foreground">
+                  마케팅 정보 수신을 철회합니다.<br />
+                  철회 후에도 기본 멤버십 혜택(콜키지 프리)은 유지됩니다.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    마케팅 정보 수신에 동의하면 아래 쿠폰이 즉시 발급됩니다.
+                  </p>
+                  <div className="bg-primary/10 rounded-xl p-3 space-y-1.5">
+                    <p className="text-xs font-bold text-primary">🎁 즉시 발급 쿠폰</p>
+                    <p className="text-xs text-foreground">✓ 10% 할인 쿠폰 (미발급 시)</p>
+                    <p className="text-xs text-foreground">✓ 생일 15% 할인 쿠폰 (올해 미발급 시)</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">수신 항목: 신메뉴 안내, 이벤트 정보, 프로모션 혜택</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setConsentConfirmOpen(false)}>
+                취소
+              </Button>
+              <Button
+                className="flex-1"
+                variant={member?.marketingConsent ? "destructive" : "default"}
+                disabled={marketingConsentMutation.isPending}
+                onClick={() => {
+                  if (!member) return;
+                  marketingConsentMutation.mutate({
+                    memberId: member.id,
+                    email: member.email,
+                    agreed: !member.marketingConsent,
+                    userAgent: navigator.userAgent,
+                  });
+                }}
+              >
+                {marketingConsentMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : member?.marketingConsent ? "철회" : "동의하고 쿠폰 받기"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Coupons */}
         {member && (
