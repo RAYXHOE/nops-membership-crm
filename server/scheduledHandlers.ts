@@ -8,7 +8,7 @@ import {
   getCouponsExpiringInDays,
 } from "./db";
 import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
-import { sendExpiryAlimtalk, sendAnniversaryAlimtalk } from "./kakao";
+import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk } from "./kakao";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -67,6 +67,16 @@ export async function birthdayCouponHandler(req: Request, res: Response) {
           discountPercent: template.discountPercent ?? 15,
           expiresAt,
         }).catch((err) => console.error("[Email] Birthday email failed:", err));
+      }
+      // 생일 카카오 알림톡 발송 (비동기)
+      if (member.phone) {
+        sendBirthdayAlimtalk({
+          to: member.phone,
+          name: member.name ?? "고객",
+          couponCode,
+          discountPercent: template.discountPercent ?? 15,
+          expiresAt,
+        }).catch((err) => console.error("[Kakao] Birthday alimtalk failed:", err));
       }
       issued++;
     }

@@ -133,3 +133,35 @@ export async function sendAnniversaryAlimtalk(opts: {
     return { success: false, error: String(err) };
   }
 }
+
+// ─── 생일 알림톡 ─────────────────────────────────────────────────────────────
+export async function sendBirthdayAlimtalk(opts: {
+  to: string;
+  name: string;
+  couponCode: string;
+  discountPercent: number;
+  expiresAt: Date;
+}) {
+  try {
+    const client = getSolapiClient();
+    await client.send({
+      to: normalizePhone(opts.to),
+      from: normalizePhone(SENDER),
+      kakaoOptions: {
+        pfId: PFID,
+        templateId: TEMPLATE_EXPIRY, // 생일 쿠폰은 만료 알림 템플릿 변수 구조와 유사
+        variables: {
+          "#{이름}": opts.name,
+          "#{쿠폰명}": `생일 ${opts.discountPercent}% 할인 쿠폰`,
+          "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
+          "#{링크}": "https://membership.nops.kr/mypage",
+        },
+      },
+    } as Parameters<typeof client.send>[0]);
+    console.log(`[Kakao] Birthday alimtalk sent to ${opts.to}`);
+    return { success: true };
+  } catch (err) {
+    console.error(`[Kakao] Failed to send birthday alimtalk to ${opts.to}:`, err);
+    return { success: false, error: String(err) };
+  }
+}

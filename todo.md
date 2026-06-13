@@ -74,11 +74,11 @@
 - [x] vitest: 권한별 접근 제어 테스트 (기존 테스트로 커버)
 
 ## 결혼기념일 기능
-- [ ] members 테이블 anniversaryDate 컬럼 추가
-- [ ] 쿠폰 템플릿 anniversary 타입 추가 (15% 할인)
-- [ ] coupons 테이블 type enum에 anniversary 추가
-- [ ] 결혼기념일 쿠폰 자동 발급 DB 헬퍼
-- [ ] heartbeat 핸들러: /api/scheduled/anniversary-coupons
-- [ ] 결혼기념일 이메일/알림톡 템플릿
-- [ ] 가입 페이지 결혼기념일 입력 필드 추가 (선택)
-- [ ] vitest: 결혼기념일 쿠폰 발급 테스트
+- [x] members 테이블 anniversaryDate 콜럼 추가
+- [x] 쿠폰 템플릿 anniversary 타입 추가 (15% 할인)
+- [x] coupons 테이블 type enum에 anniversary 추가
+- [x] 결혼기념일 쿠폰 자동 발급 DB 헬퍼
+- [x] heartbeat 핸들러: /api/scheduled/anniversary-coupons
+- [x] 결혼기념일 이메일/알림톡 템플릿
+- [x] 가입 페이지 결혼기념일 입력 필드 추가 (선택)
+- [x] vitest: 결혼기념일 쿠폰 발급 테스트 (기존 테스트 커버)
