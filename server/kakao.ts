@@ -100,3 +100,36 @@ export async function validateSolapiApiKey(): Promise<boolean> {
     return false;
   }
 }
+
+// ─── 결혼기념일 알림톡 ────────────────────────────────────────────────────────
+export async function sendAnniversaryAlimtalk(opts: {
+  to: string;
+  name: string;
+  couponCode: string;
+  discountPercent: number;
+  expiresAt: Date;
+}) {
+  try {
+    const client = getSolapiClient();
+    await client.send({
+      to: normalizePhone(opts.to),
+      from: normalizePhone(SENDER),
+      kakaoOptions: {
+        pfId: PFID,
+        // 결혼기념일 전용 템플릿이 없으면 생일 쿠폰 템플릿 사용
+        templateId: process.env.SOLAPI_TEMPLATE_ANNIVERSARY ?? TEMPLATE_WELCOME,
+        variables: {
+          "#{이름}": opts.name,
+          "#{쿠폰명}": `결혼기념일 ${opts.discountPercent}% 할인 쿠폰`,
+          "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
+          "#{링크}": "https://membership.nops.kr/mypage",
+        },
+      },
+    } as Parameters<typeof client.send>[0]);
+    console.log(`[Kakao] Anniversary alimtalk sent to ${opts.to}`);
+    return { success: true };
+  } catch (err) {
+    console.error(`[Kakao] Failed to send anniversary alimtalk to ${opts.to}:`, err);
+    return { success: false, error: String(err) };
+  }
+}

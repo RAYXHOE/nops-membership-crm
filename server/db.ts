@@ -150,7 +150,7 @@ export async function listCouponTemplates() {
   return db.select().from(couponTemplates).where(eq(couponTemplates.isActive, true));
 }
 
-export async function getCouponTemplateByType(type: "discount_percent" | "corkage_free" | "birthday") {
+export async function getCouponTemplateByType(type: "discount_percent" | "corkage_free" | "birthday" | "anniversary") {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db
@@ -464,6 +464,48 @@ export async function getCouponsExpiringInDays(days: number) {
     );
 
   return result;
+}
+
+// 결혼기념일 쿠폰 발급 대상 조회 (오늘 결혼기념일인 회원 중 올해 쿠폰 미발급자)
+export async function getMembersWithAnniversaryToday() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const today = new Date();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const year = today.getFullYear();
+
+  const result = await db
+    .select({ member: members })
+    .from(members)
+    .where(
+      and(
+        eq(members.status, "active"),
+        sql`MONTH(anniversaryDate) = ${month}`,
+        sql`DAY(anniversaryDate) = ${day}`,
+        sql`anniversaryDate IS NOT NULL`
+      )
+    );
+
+  // 올해 이미 발급된 회원 필터링
+  const filtered = [];
+  for (const { member } of result) {
+    const existing = await db
+      .select()
+      .from(coupons)
+      .where(
+        and(
+          eq(coupons.memberId, member.id),
+          eq(coupons.type, "anniversary"),
+          eq(coupons.birthdayYear, year)
+        )
+      )
+      .limit(1);
+    if (existing.length === 0) filtered.push(member);
+  }
+
+  return filtered;
 }
 
 // 생일 쿠폰 발급 대상 조회 (오늘 생일인 회원 중 올해 쿠폰 미발급자)

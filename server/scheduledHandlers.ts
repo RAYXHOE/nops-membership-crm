@@ -2,12 +2,13 @@ import type { Request, Response } from "express";
 import { sdk } from "./_core/sdk";
 import {
   getMembersWithBirthdayToday,
+  getMembersWithAnniversaryToday,
   getCouponTemplateByType,
   issueCoupon,
   getCouponsExpiringInDays,
 } from "./db";
-import { sendBirthdayEmail, sendExpiryReminderEmail } from "./email";
-import { sendExpiryAlimtalk } from "./kakao";
+import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
+import { sendExpiryAlimtalk, sendAnniversaryAlimtalk } from "./kakao";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -171,6 +172,82 @@ export async function couponExpiryReminderHandler(req: Request, res: Response) {
     });
   } catch (err) {
     console.error("[Expiry Reminder] Error:", err);
+    return res.status(500).json({
+      error: String(err),
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+/**
+ * POST /api/scheduled/anniversary-coupons
+ * 매일 자정(KST) 실행
+ * 오늘 결혼기념일인 활성 회원에게 15% 할인 쿠폰 자동 발급 + 이메일/알림톡 발송
+ */
+export async function anniversaryCouponHandler(req: Request, res: Response) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user.isCron) {
+      return res.status(403).json({ error: "cron-only endpoint" });
+    }
+
+    const anniversaryMembers = await getMembersWithAnniversaryToday();
+    const template = await getCouponTemplateByType("anniversary");
+
+    if (!template) {
+      return res.status(500).json({ error: "anniversary coupon template not found" });
+    }
+
+    const now = new Date();
+    const year = now.getFullYear();
+    let issued = 0;
+
+    for (const member of anniversaryMembers) {
+      const expiresAt = new Date(now);
+      expiresAt.setDate(expiresAt.getDate() + template.validDays);
+
+      const couponCode = generateCouponCode("ANNI");
+      await issueCoupon({
+        memberId: member.id,
+        templateId: template.id,
+        code: couponCode,
+        type: "anniversary",
+        discountPercent: template.discountPercent,
+        name: template.name,
+        description: template.description,
+        expiresAt,
+        birthdayYear: year, // 연도 중복 방지용
+      });
+
+      // 이메일 발송 (비동기)
+      if (member.email) {
+        sendAnniversaryEmail({
+          to: member.email,
+          name: member.name ?? "고객",
+          couponCode,
+          discountPercent: template.discountPercent ?? 15,
+          expiresAt,
+        }).catch((err) => console.error("[Email] Anniversary email failed:", err));
+      }
+
+      // 카카오 알림톡 발송 (비동기)
+      if (member.phone) {
+        sendAnniversaryAlimtalk({
+          to: member.phone,
+          name: member.name ?? "고객",
+          couponCode,
+          discountPercent: template.discountPercent ?? 15,
+          expiresAt,
+        }).catch((err) => console.error("[Kakao] Anniversary alimtalk failed:", err));
+      }
+
+      issued++;
+    }
+
+    console.log(`[Anniversary Coupons] Issued ${issued} coupons for ${now.toISOString().slice(0, 10)}`);
+    return res.json({ ok: true, issued, date: now.toISOString().slice(0, 10) });
+  } catch (err) {
+    console.error("[Anniversary Coupons] Error:", err);
     return res.status(500).json({
       error: String(err),
       timestamp: new Date().toISOString(),

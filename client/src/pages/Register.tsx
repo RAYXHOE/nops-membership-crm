@@ -44,6 +44,7 @@ const schema = z.object({
   email: z.string().email("올바른 이메일 형식이 아닙니다"),
   phone: z.string().min(9, "전화번호를 입력해주세요").max(20),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "생년월일을 입력해주세요"),
+  anniversaryDate: z.string().optional(), // 결혼기념일 (선택)
   privacyConsent: z.boolean().refine((v) => v === true, "개인정보 수집 동의는 필수입니다"),
   marketingConsent: z.boolean(),
 });
@@ -76,6 +77,7 @@ export default function Register() {
   const [marketingOpen, setMarketingOpen] = useState(false);
   const [phoneDisplay, setPhoneDisplay] = useState("");
   const [birthDisplay, setBirthDisplay] = useState("");
+  const [anniversaryDisplay, setAnniversaryDisplay] = useState("");
 
   const {
     register,
@@ -254,6 +256,32 @@ export default function Register() {
               />
               <p className="text-xs text-muted-foreground">숫자만 입력하면 자동으로 형식이 맞춰집니다 (예: 19900115)</p>
               {errors.birthDate && <p className="text-destructive text-xs">{errors.birthDate.message}</p>}
+            </div>
+
+            {/* 결혼기념일 (선택) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="anniversaryDate" className="text-sm font-semibold text-foreground">
+                결혼기념일 <span className="text-muted-foreground text-xs font-normal">(선택 · 입력 시 기념일 15% 쿠폰 자동 발급)</span>
+              </Label>
+              <Input
+                id="anniversaryDate"
+                type="text"
+                placeholder="예: 20150520 또는 2015-05-20"
+                value={anniversaryDisplay}
+                onChange={(e) => {
+                  const formatted = formatBirthDate(e.target.value);
+                  setAnniversaryDisplay(formatted);
+                  if (formatted.length === 10) {
+                    setValue("anniversaryDate", formatted, { shouldValidate: false });
+                  } else {
+                    setValue("anniversaryDate", undefined);
+                  }
+                }}
+                className="h-12 text-base"
+                inputMode="numeric"
+                maxLength={10}
+              />
+              <p className="text-xs text-muted-foreground">결혼기념일을 입력하시면 매년 기념일에 15% 할인 쿠폰이 자동 발급됩니다</p>
             </div>
           </div>
 

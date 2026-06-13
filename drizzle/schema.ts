@@ -37,6 +37,7 @@ export const members = mysqlTable("members", {
   email: varchar("email", { length: 320 }).notNull().unique(),
   phone: varchar("phone", { length: 20 }).notNull(),
   birthDate: date("birthDate").notNull(),
+  anniversaryDate: date("anniversaryDate"), // 결혼기념일 (선택)
   // 개인정보 수집 동의
   privacyConsent: boolean("privacyConsent").notNull().default(false),
   privacyConsentAt: timestamp("privacyConsentAt"),
@@ -60,7 +61,7 @@ export type InsertMember = typeof members.$inferInsert;
 export const couponTemplates = mysqlTable("coupon_templates", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
-  type: mysqlEnum("type", ["discount_percent", "corkage_free", "birthday"]).notNull(),
+  type: mysqlEnum("type", ["discount_percent", "corkage_free", "birthday", "anniversary"]).notNull(),
   discountPercent: int("discountPercent"),
   description: text("description"),
   validDays: int("validDays").notNull().default(365), // 발급 후 유효 기간(일)
@@ -77,7 +78,7 @@ export const coupons = mysqlTable("coupons", {
   memberId: int("memberId").notNull(),
   templateId: int("templateId").notNull(),
   code: varchar("code", { length: 20 }).notNull().unique(),
-  type: mysqlEnum("type", ["discount_percent", "corkage_free", "birthday"]).notNull(),
+  type: mysqlEnum("type", ["discount_percent", "corkage_free", "birthday", "anniversary"]).notNull(),
   discountPercent: int("discountPercent"),
   name: varchar("name", { length: 100 }).notNull(),
   description: text("description"),
@@ -87,7 +88,7 @@ export const coupons = mysqlTable("coupons", {
   usedAt: timestamp("usedAt"),
   usedByStaffId: int("usedByStaffId"), // 사용 처리한 운영자 user.id
   usedNote: text("usedNote"),
-  // 생일 쿠폰의 경우 해당 연도 기록
+  // 생일/결혼기념일 쿠폰의 경우 해당 연도 기록
   birthdayYear: int("birthdayYear"),
 });
 

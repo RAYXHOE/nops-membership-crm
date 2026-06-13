@@ -313,6 +313,58 @@ export async function sendExpiryReminderEmail(opts: {
   }
 }
 
+// ─── 결혼기념일 쿠폰 이메일 ─────────────────────────────────────────────────────
+export async function sendAnniversaryEmail(opts: {
+  to: string;
+  name: string;
+  couponCode: string;
+  discountPercent: number;
+  expiresAt: Date;
+}) {
+  try {
+    const html = `<!DOCTYPE html>
+<html lang="ko">
+<head><meta charset="UTF-8" /><title>결혼기념일 쿠폰 - NOPS Steak House</title></head>
+<body style="margin:0; padding:0; background:#f7f3ee; font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif; color:#1a1a1a;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f3ee; padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+        <tr><td style="background:#1a1a1a; padding:32px 40px; text-align:center;">
+          <p style="margin:0 0 4px; color:#c9a84c; font-size:11px; letter-spacing:0.3em; text-transform:uppercase; font-weight:600;">Happy Anniversary</p>
+          <h1 style="margin:0; color:#fff; font-size:24px; font-weight:800;">NOPS Steak House</h1>
+        </td></tr>
+        <tr><td style="padding:40px; text-align:center;">
+          <p style="margin:0 0 8px; font-size:32px;">💍</p>
+          <h2 style="margin:0 0 12px; font-size:22px; font-weight:800;">${opts.name}님, 결혼기념일을 축하드립니다!</h2>
+          <p style="margin:0 0 32px; font-size:15px; color:#555; line-height:1.7;">특별한 날을 더욱 특별하게 만들어 드리고자<br />${opts.discountPercent}% 할인 쿠폰을 드립니다.</p>
+          <div style="background:#faf7f2; border:2px solid #c9a84c; border-radius:12px; padding:24px; display:inline-block; min-width:240px;">
+            <p style="margin:0 0 8px; font-size:11px; color:#8b6914; letter-spacing:0.2em; text-transform:uppercase; font-weight:600;">쿠폰 코드</p>
+            <code style="font-size:22px; font-weight:800; color:#1a1a1a; letter-spacing:0.15em; font-family:monospace;">${opts.couponCode}</code>
+            <p style="margin:8px 0 0; font-size:12px; color:#888;">${new Date(opts.expiresAt).toLocaleDateString("ko-KR")}까지</p>
+          </div>
+        </td></tr>
+        <tr><td style="background:#f7f3ee; padding:24px 40px; text-align:center; border-top:1px solid #e8dfd0;">
+          <p style="margin:0; font-size:11px; color:#bbb;">NOPS Steak House · 본 메일은 발신 전용입니다.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: opts.to,
+      subject: `[NOPS Steak House] ${opts.name}님, 결혼기념일을 진심으로 축하드립니다! 💍`,
+      html,
+    });
+    console.log(`[Email] Anniversary email sent to ${opts.to}:`, result.data?.id ?? result.error);
+    return { success: !result.error, id: result.data?.id };
+  } catch (err) {
+    console.error(`[Email] Failed to send anniversary email to ${opts.to}:`, err);
+    return { success: false };
+  }
+}
+
 // API 키 유효성 검증용
 export async function validateResendApiKey(): Promise<boolean> {
   try {

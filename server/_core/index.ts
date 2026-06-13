@@ -8,7 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { birthdayCouponHandler, couponExpiryReminderHandler } from "../scheduledHandlers";
+import { birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler } from "../scheduledHandlers";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -40,6 +40,7 @@ async function startServer() {
   // Scheduled handlers (must be before tRPC and Vite fallthrough)
   app.post("/api/scheduled/birthday-coupons", birthdayCouponHandler);
   app.post("/api/scheduled/coupon-expiry-reminder", couponExpiryReminderHandler);
+  app.post("/api/scheduled/anniversary-coupons", anniversaryCouponHandler);
 
   // tRPC API
   app.use(
