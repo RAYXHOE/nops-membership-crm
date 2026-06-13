@@ -492,6 +492,22 @@ export const appRouter = router({
       return listCouponTemplates();
     }),
 
+    // 쿠폰 코드로 직접 조회 (QR 스캔 전용)
+    getCouponByCode: adminProcedure
+      .input(z.object({ code: z.string().min(1) }))
+      .query(async ({ input }) => {
+        const coupon = await getCouponByCode(input.code.trim().toUpperCase());
+        if (!coupon) throw new TRPCError({ code: "NOT_FOUND", message: "쿠폰을 찾을 수 없습니다." });
+
+        // 회원 정보 함께 반환
+        const member = await getMemberById(coupon.memberId);
+        return {
+          ...coupon,
+          memberName: member?.name ?? null,
+          memberEmail: member?.email ?? null,
+        };
+      }),
+
     expireCoupons: adminProcedure.mutation(async () => {
       await expireOverdueCoupons();
       return { success: true };

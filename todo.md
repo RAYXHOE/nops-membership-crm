@@ -59,3 +59,9 @@
 - [x] heartbeat 핸들러: /api/scheduled/coupon-expiry-reminder
 - [x] heartbeat 스케줄러 등록 (매일 오전 10시 KST, task_uid: aUqadeNRhxsLrKNNL54oMe)
 - [x] vitest: 만료 알림 핸들러 테스트 (3개 통과)
+
+## QR 스캔 쿠폰 사용처리
+- [x] html5-qrcode 라이브러리 설치
+- [x] QrScannerModal 컴포넌트 구현 (카메라 스캔 + 수동 입력 탭)
+- [x] 관리자 쿠폰 관리 페이지에 QR 스캔 버튼 추가
+- [x] 스캔 성공 → 쿠폰 정보 확인 → 사용처리 플로우 구현

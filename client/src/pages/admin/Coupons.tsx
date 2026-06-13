@@ -1,7 +1,8 @@
 import { useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
+import QrScannerModal from "@/components/QrScannerModal";
 import { trpc } from "@/lib/trpc";
-import { Tag, Search, CheckCircle2, Filter, RefreshCw } from "lucide-react";
+import { Tag, CheckCircle2, Filter, RefreshCw, QrCode } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +49,7 @@ export default function AdminCoupons() {
     onError: (e) => toast.error(e.message),
   });
 
+  const [scannerOpen, setScannerOpen] = useState(false);
   const items = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
 
@@ -74,6 +76,15 @@ export default function AdminCoupons() {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-3 mb-6">
+          {/* QR 스캔 버튼 - 가장 눈에 띄게 */}
+          <Button
+            size="sm"
+            className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => setScannerOpen(true)}
+          >
+            <QrCode className="w-4 h-4" />
+            QR 스캔 사용처리
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -209,6 +220,16 @@ export default function AdminCoupons() {
           )}
         </div>
       </div>
+
+      {/* QR 스캐너 모달 */}
+      <QrScannerModal
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onSuccess={() => {
+          utils.admin.listCoupons.invalidate();
+          setScannerOpen(false);
+        }}
+      />
     </AdminLayout>
   );
 }
