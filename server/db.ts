@@ -432,6 +432,39 @@ export async function getPurchaseStats() {
   };
 }
 
+// 만료 7일 전 활성 쿠폰 + 회원 이메일 조회 (알림 발송용)
+export async function getCouponsExpiringInDays(days: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const now = new Date();
+  // 정확히 'days일 후' 하루 전체를 조회 (00:00:00 ~ 23:59:59)
+  const from = new Date(now);
+  from.setDate(from.getDate() + days);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(from);
+  to.setHours(23, 59, 59, 999);
+
+  const result = await db
+    .select({
+      coupon: coupons,
+      memberName: members.name,
+      memberEmail: members.email,
+      memberId: members.id,
+    })
+    .from(coupons)
+    .leftJoin(members, eq(coupons.memberId, members.id))
+    .where(
+      and(
+        eq(coupons.status, "active"),
+        gte(coupons.expiresAt, from),
+        lte(coupons.expiresAt, to)
+      )
+    );
+
+  return result;
+}
+
 // 생일 쿠폰 발급 대상 조회 (오늘 생일인 회원 중 올해 쿠폰 미발급자)
 export async function getMembersWithBirthdayToday() {
   const db = await getDb();

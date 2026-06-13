@@ -92,7 +92,7 @@ function buildWelcomeEmailHtml(opts: {
           <!-- CTA -->
           <tr>
             <td style="padding:0 40px 40px; text-align:center;">
-              <a href="${process.env.APP_BASE_URL ?? ""}/mypage"
+              <a href="https://membership.nops.kr/mypage"
                  style="display:inline-block; background:#1a1a1a; color:#ffffff; text-decoration:none; padding:14px 36px; border-radius:8px; font-size:14px; font-weight:700; letter-spacing:0.05em;">
                 내 쿠폰 확인하기 →
               </a>
@@ -206,6 +206,109 @@ export async function sendBirthdayEmail(opts: {
     return { success: !result.error, id: result.data?.id };
   } catch (err) {
     console.error(`[Email] Failed to send birthday email to ${opts.to}:`, err);
+    return { success: false };
+  }
+}
+
+// ─── 쿠폰 만료 임박 알림 이메일 ─────────────────────────────────────────────
+function buildExpiryReminderHtml(opts: {
+  name: string;
+  coupons: Array<{ name: string; code: string; discountPercent: number | null; expiresAt: Date }>;
+}) {
+  const couponRows = opts.coupons
+    .map(
+      (c) => `
+      <tr>
+        <td style="padding:12px 16px; border-bottom:1px solid #f0ebe3;">
+          <strong style="color:#1a1a1a; font-size:14px;">${c.name}</strong>
+          ${c.discountPercent ? `<span style="color:#8b6914; font-weight:700; margin-left:8px;">${c.discountPercent}% 할인</span>` : ""}
+        </td>
+        <td style="padding:12px 16px; border-bottom:1px solid #f0ebe3; text-align:right;">
+          <code style="background:#f7f3ee; padding:4px 10px; border-radius:6px; font-family:monospace; font-size:13px; font-weight:700; color:#1a1a1a; letter-spacing:0.1em;">${c.code}</code>
+        </td>
+        <td style="padding:12px 16px; border-bottom:1px solid #f0ebe3; text-align:right; color:#c0392b; font-size:12px; font-weight:700;">
+          ${new Date(c.expiresAt).toLocaleDateString("ko-KR")} 만료
+        </td>
+      </tr>`
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>쿠폰 만료 안내 - NOPS Steak House</title>
+</head>
+<body style="margin:0; padding:0; background:#f7f3ee; font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif; color:#1a1a1a;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f3ee; padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="background:#1a1a1a; padding:32px 40px; text-align:center;">
+              <p style="margin:0 0 4px; color:#c9a84c; font-size:11px; letter-spacing:0.3em; text-transform:uppercase; font-weight:600;">Coupon Expiry Notice</p>
+              <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:800; letter-spacing:0.05em;">NOPS Steak House</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 24px;">
+              <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:10px; padding:14px 18px; margin-bottom:24px;">
+                <p style="margin:0; font-size:14px; font-weight:700; color:#856404;">⏰ 쿠폰이 7일 후 만료됩니다</p>
+              </div>
+              <h2 style="margin:0 0 12px; font-size:20px; font-weight:800; color:#1a1a1a;">${opts.name}님, 쿠폰을 잊지 마세요!</h2>
+              <p style="margin:0; font-size:15px; color:#555; line-height:1.7;">
+                아래 쿠폰이 <strong>7일 이내에 만료</strong>됩니다.<br />
+                방문 시 직원에게 쿠폰 코드를 제시해 주세요.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 40px 32px;">
+              <div style="background:#faf7f2; border:1px solid #e8dfd0; border-radius:12px; overflow:hidden;">
+                <div style="padding:14px 16px 10px; border-bottom:1px solid #e8dfd0;">
+                  <p style="margin:0; font-size:12px; font-weight:700; color:#8b6914; letter-spacing:0.1em; text-transform:uppercase;">만료 임박 쿠폰</p>
+                </div>
+                <table width="100%" cellpadding="0" cellspacing="0">${couponRows}</table>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 40px 40px; text-align:center;">
+              <a href="https://membership.nops.kr/mypage"
+                 style="display:inline-block; background:#1a1a1a; color:#ffffff; text-decoration:none; padding:14px 36px; border-radius:8px; font-size:14px; font-weight:700; letter-spacing:0.05em;">
+                내 쿠폰 확인하기 →
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f7f3ee; padding:24px 40px; text-align:center; border-top:1px solid #e8dfd0;">
+              <p style="margin:0; font-size:11px; color:#bbb;">NOPS Steak House · 본 메일은 발신 전용입니다.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendExpiryReminderEmail(opts: {
+  to: string;
+  name: string;
+  coupons: Array<{ name: string; code: string; discountPercent: number | null; expiresAt: Date }>;
+}) {
+  try {
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: opts.to,
+      subject: `[NOPS Steak House] ${opts.name}님, 쿠폰이 7일 후 만료됩니다 ⏰`,
+      html: buildExpiryReminderHtml({ name: opts.name, coupons: opts.coupons }),
+    });
+    console.log(`[Email] Expiry reminder sent to ${opts.to}:`, result.data?.id ?? result.error);
+    return { success: !result.error, id: result.data?.id };
+  } catch (err) {
+    console.error(`[Email] Failed to send expiry reminder to ${opts.to}:`, err);
     return { success: false };
   }
 }

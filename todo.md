@@ -52,3 +52,10 @@
 - [x] 동의 변경 시 consent_logs 이력 저장
 - [x] 마이페이지 UI - 동의 현황 표시 + 동의/철회 버튼
 - [x] 마케팅 동의 변경 vitest (5개 테스트 통과)
+
+## 쿠폰 만료 7일 전 알림
+- [x] DB 헬퍼: 만료 7일 전 활성 쿠폰 + 회원 이메일 조회
+- [x] 이메일 템플릿: 만료 임박 쿠폰 알림 HTML
+- [x] heartbeat 핸들러: /api/scheduled/coupon-expiry-reminder
+- [x] heartbeat 스케줄러 등록 (매일 오전 10시 KST, task_uid: aUqadeNRhxsLrKNNL54oMe)
+- [x] vitest: 만료 알림 핸들러 테스트 (3개 통과)
