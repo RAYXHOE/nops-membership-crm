@@ -450,6 +450,7 @@ export async function getCouponsExpiringInDays(days: number) {
       coupon: coupons,
       memberName: members.name,
       memberEmail: members.email,
+      memberPhone: members.phone,
       memberId: members.id,
     })
     .from(coupons)

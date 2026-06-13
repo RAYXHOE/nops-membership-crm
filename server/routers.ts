@@ -34,6 +34,7 @@ import {
   expireOverdueCoupons,
 } from "./db";
 import { sendWelcomeEmail } from "./email";
+import { sendWelcomeAlimtalk } from "./kakao";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -239,18 +240,30 @@ export const appRouter = router({
           }
         }
 
-        // 발급된 쿠폰 목록 조회 후 환영 이메일 발송 (비동기, 실패해도 가입은 성공)
+        // 발급된 쿠폰 목록 조회
         const issuedCoupons = await getCouponsByMemberId(member.id);
+        const couponPayload = issuedCoupons.map((c) => ({
+          name: c.name,
+          code: c.code,
+          discountPercent: c.discountPercent,
+          expiresAt: c.expiresAt,
+        }));
+
+        // 환영 이메일 발송 (비동기)
         sendWelcomeEmail({
           to: member.email,
           name: member.name,
-          coupons: issuedCoupons.map((c) => ({
-            name: c.name,
-            code: c.code,
-            discountPercent: c.discountPercent,
-            expiresAt: c.expiresAt,
-          })),
+          coupons: couponPayload,
         }).catch((err) => console.error("[Email] Welcome email failed:", err));
+
+        // 환영 카카오 알림톡 발송 (전화번호 있는 경우만, 비동기)
+        if (member.phone) {
+          sendWelcomeAlimtalk({
+            to: member.phone,
+            name: member.name,
+            coupons: couponPayload.map((c) => ({ name: c.name, code: c.code })),
+          }).catch((err) => console.error("[Kakao] Welcome alimtalk failed:", err));
+        }
 
         return { success: true, memberId: member.id };
       }),

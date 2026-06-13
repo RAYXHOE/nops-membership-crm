@@ -7,6 +7,7 @@ import {
   getCouponsExpiringInDays,
 } from "./db";
 import { sendBirthdayEmail, sendExpiryReminderEmail } from "./email";
+import { sendExpiryAlimtalk } from "./kakao";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -106,6 +107,7 @@ export async function couponExpiryReminderHandler(req: Request, res: Response) {
       {
         name: string;
         email: string;
+        phone: string | null;
         coupons: Array<{ name: string; code: string; discountPercent: number | null; expiresAt: Date }>;
       }
     >();
@@ -117,6 +119,7 @@ export async function couponExpiryReminderHandler(req: Request, res: Response) {
         byMember.set(key, {
           name: item.memberName ?? "고객",
           email: item.memberEmail,
+          phone: item.memberPhone ?? null,
           coupons: [],
         });
       }
@@ -133,15 +136,22 @@ export async function couponExpiryReminderHandler(req: Request, res: Response) {
 
     for (const [email, data] of Array.from(byMember.entries())) {
       try {
+        // 이메일 발송
         const result = await sendExpiryReminderEmail({
           to: email,
           name: data.name,
           coupons: data.coupons,
         });
-        if (result.success) {
-          sent++;
-        } else {
-          errors.push(`${email}: send failed`);
+        if (result.success) sent++;
+        else errors.push(`${email}: email failed`);
+
+        // 카카오 알림톡 발송 (전화번호 있는 경우만)
+        if (data.phone) {
+          sendExpiryAlimtalk({
+            to: data.phone,
+            name: data.name,
+            coupons: data.coupons,
+          }).catch((err) => console.error("[Kakao] Expiry alimtalk failed:", err));
         }
       } catch (err) {
         errors.push(`${email}: ${String(err)}`);
