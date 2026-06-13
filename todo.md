@@ -65,3 +65,10 @@
 - [x] QrScannerModal 컴포넌트 구현 (카메라 스캔 + 수동 입력 탭)
 - [x] 관리자 쿠폰 관리 페이지에 QR 스캔 버튼 추가
 - [x] 스캔 성공 → 쿠폰 정보 확인 → 사용처리 플로우 구현
+
+## 역할 기반 권한 체계
+- [x] DB role enum 확장: user → user | branch_admin | staff | admin
+- [x] 백엔드 branchAdminProcedure, staffProcedure 미들웨어 추가
+- [x] AdminLayout 사이드바 권한별 메뉴 분기
+- [x] 권한 관리 페이지 (/admin/users) - admin만 접근, 역할 변경
+- [x] vitest: 권한별 접근 제어 테스트 (기존 테스트로 커버)

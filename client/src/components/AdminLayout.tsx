@@ -8,18 +8,59 @@ import {
   Tag,
   Users,
   LayoutDashboard,
+  ShieldCheck,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
-const navItems = [
-  { href: "/admin", icon: LayoutDashboard, label: "대시보드" },
-  { href: "/admin/members", icon: Users, label: "회원 관리" },
-  { href: "/admin/coupons", icon: Tag, label: "쿠폰 관리" },
-  { href: "/admin/analytics", icon: BarChart3, label: "데이터 분석" },
+// 역할별 접근 가능 메뉴 정의
+const allNavItems = [
+  {
+    href: "/admin",
+    icon: LayoutDashboard,
+    label: "대시보드",
+    roles: ["staff", "admin"], // 지점 관리자는 대시보드 미표시
+    exact: true,
+  },
+  {
+    href: "/admin/members",
+    icon: Users,
+    label: "회원 관리",
+    roles: ["branch_admin", "staff", "admin"],
+    exact: false,
+  },
+  {
+    href: "/admin/coupons",
+    icon: Tag,
+    label: "쿠폰 관리",
+    roles: ["branch_admin", "staff", "admin"],
+    exact: false,
+  },
+  {
+    href: "/admin/analytics",
+    icon: BarChart3,
+    label: "데이터 분석",
+    roles: ["staff", "admin"],
+    exact: false,
+  },
+  {
+    href: "/admin/users",
+    icon: ShieldCheck,
+    label: "권한 관리",
+    roles: ["admin"],
+    exact: false,
+  },
 ];
+
+// 역할 표시명
+const roleLabels: Record<string, string> = {
+  admin: "슈퍼 어드민",
+  staff: "본사 스태프",
+  branch_admin: "지점 관리자",
+  user: "일반 사용자",
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAuthenticated } = useAuth();
@@ -30,6 +71,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     },
   });
 
+  const userRole = user?.role ?? "user";
+  const allowedRoles = ["branch_admin", "staff", "admin"];
+
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       window.location.href = getLoginUrl();
@@ -37,11 +81,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [loading, isAuthenticated]);
 
   useEffect(() => {
-    if (!loading && isAuthenticated && user?.role !== "admin") {
+    if (!loading && isAuthenticated && !allowedRoles.includes(userRole)) {
       toast.error("관리자 권한이 필요합니다.");
       navigate("/");
     }
-  }, [loading, isAuthenticated, user]);
+  }, [loading, isAuthenticated, userRole]);
 
   if (loading) {
     return (
@@ -54,7 +98,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!isAuthenticated || user?.role !== "admin") return null;
+  if (!isAuthenticated || !allowedRoles.includes(userRole)) return null;
+
+  // 현재 역할에서 접근 가능한 메뉴만 필터링
+  const navItems = allNavItems.filter((item) => item.roles.includes(userRole));
+
+  // 지점 관리자가 대시보드 접근 시 회원 관리로 리다이렉트
+  useEffect(() => {
+    if (userRole === "branch_admin" && location === "/admin") {
+      navigate("/admin/members");
+    }
+  }, [userRole, location]);
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -73,10 +127,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
+        {/* 역할 배지 */}
+        <div className="px-6 py-3 border-b border-sidebar-border">
+          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+            userRole === "admin"
+              ? "bg-yellow-500/20 text-yellow-400"
+              : userRole === "staff"
+              ? "bg-blue-500/20 text-blue-400"
+              : "bg-green-500/20 text-green-400"
+          }`}>
+            {roleLabels[userRole] ?? userRole}
+          </span>
+        </div>
+
         {/* Nav */}
         <nav className="flex-1 px-3 py-6 space-y-1">
           {navItems.map((item) => {
-            const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
+            const isActive = item.exact
+              ? location === item.href
+              : location.startsWith(item.href);
             return (
               <Link key={item.href} href={item.href}>
                 <div

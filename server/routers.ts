@@ -61,10 +61,33 @@ const MARKETING_CONSENT_TEXT = `마케팅 정보 수신 동의서
 보유 기간: 동의 철회 시까지
 동의 거부 시 불이익: 마케팅 정보 수신이 제한되나, 기본 멤버십 혜택은 유지됩니다.`;
 
-// ─── Admin Middleware ─────────────────────────────────────────────────────────
+// ─── Permission Helpers ──────────────────────────────────────────────────────
+type AllowedRole = "branch_admin" | "staff" | "admin";
+
+function hasRole(userRole: string, allowed: AllowedRole[]): boolean {
+  return (allowed as string[]).includes(userRole);
+}
+
+// 슬루퍼 어드민만
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
     throw new TRPCError({ code: "FORBIDDEN", message: "관리자 권한이 필요합니다." });
+  }
+  return next({ ctx });
+});
+
+// 지점 관리자 이상 (지점 관리자 + 본사 스태프 + 어드민)
+const branchAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!hasRole(ctx.user.role, ["branch_admin", "staff", "admin"])) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "지점 관리자 권한이 필요합니다." });
+  }
+  return next({ ctx });
+});
+
+// 본사 스태프 이상 (본사 스태프 + 어드민)
+const staffProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!hasRole(ctx.user.role, ["staff", "admin"])) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "본사 스태프 권한이 필요합니다." });
   }
   return next({ ctx });
 });
@@ -347,7 +370,7 @@ export const appRouter = router({
   // ─── Admin: 회원 관리 ───────────────────────────────────────────────────────
   admin: router({
     // 회원 목록
-    listMembers: adminProcedure
+    listMembers: branchAdminProcedure
       .input(
         z.object({
           search: z.string().optional(),
@@ -361,7 +384,7 @@ export const appRouter = router({
       }),
 
     // 회원 상세
-    getMember: adminProcedure
+    getMember: branchAdminProcedure
       .input(z.object({ id: z.number() }))
       .query(async ({ input }) => {
         const member = await getMemberById(input.id);
@@ -370,7 +393,7 @@ export const appRouter = router({
       }),
 
     // 회원 정보 수정
-    updateMember: adminProcedure
+    updateMember: branchAdminProcedure
       .input(
         z.object({
           id: z.number(),
@@ -408,14 +431,14 @@ export const appRouter = router({
       }),
 
     // 동의 기록 조회
-    getConsentLogs: adminProcedure
+    getConsentLogs: branchAdminProcedure
       .input(z.object({ memberId: z.number() }))
       .query(async ({ input }) => {
         return getConsentLogsByMemberId(input.memberId);
       }),
 
     // ─── 쿠폰 관리 ──────────────────────────────────────────────────────────
-    listCoupons: adminProcedure
+    listCoupons: branchAdminProcedure
       .input(
         z.object({
           memberId: z.number().optional(),
@@ -428,7 +451,7 @@ export const appRouter = router({
         return listAllCoupons(input);
       }),
 
-    issueCoupon: adminProcedure
+    issueCoupon: branchAdminProcedure
       .input(
         z.object({
           memberId: z.number(),
@@ -462,7 +485,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    useCoupon: adminProcedure
+    useCoupon: branchAdminProcedure
       .input(
         z.object({
           couponId: z.number().optional(),
@@ -488,12 +511,12 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    listCouponTemplates: adminProcedure.query(async () => {
+    listCouponTemplates: branchAdminProcedure.query(async () => {
       return listCouponTemplates();
     }),
 
     // 쿠폰 코드로 직접 조회 (QR 스캔 전용)
-    getCouponByCode: adminProcedure
+    getCouponByCode: branchAdminProcedure
       .input(z.object({ code: z.string().min(1) }))
       .query(async ({ input }) => {
         const coupon = await getCouponByCode(input.code.trim().toUpperCase());
@@ -508,19 +531,19 @@ export const appRouter = router({
         };
       }),
 
-    expireCoupons: adminProcedure.mutation(async () => {
+    expireCoupons: branchAdminProcedure.mutation(async () => {
       await expireOverdueCoupons();
       return { success: true };
     }),
 
     // ─── 방문 기록 ──────────────────────────────────────────────────────────
-    getVisits: adminProcedure
+    getVisits: branchAdminProcedure
       .input(z.object({ memberId: z.number() }))
       .query(async ({ input }) => {
         return getVisitsByMemberId(input.memberId);
       }),
 
-    addVisit: adminProcedure
+    addVisit: branchAdminProcedure
       .input(
         z.object({
           memberId: z.number(),
@@ -540,7 +563,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    updateVisit: adminProcedure
+    updateVisit: branchAdminProcedure
       .input(
         z.object({
           id: z.number(),
@@ -558,7 +581,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    deleteVisit: adminProcedure
+    deleteVisit: branchAdminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deleteVisit(input.id);
@@ -566,13 +589,13 @@ export const appRouter = router({
       }),
 
     // ─── 구매 이력 ──────────────────────────────────────────────────────────
-    getPurchases: adminProcedure
+    getPurchases: branchAdminProcedure
       .input(z.object({ memberId: z.number() }))
       .query(async ({ input }) => {
         return getPurchasesByMemberId(input.memberId);
       }),
 
-    addPurchase: adminProcedure
+    addPurchase: branchAdminProcedure
       .input(
         z.object({
           memberId: z.number(),
@@ -600,7 +623,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    updatePurchase: adminProcedure
+    updatePurchase: branchAdminProcedure
       .input(
         z.object({
           id: z.number(),
@@ -621,7 +644,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    deletePurchase: adminProcedure
+    deletePurchase: branchAdminProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deletePurchase(input.id);
@@ -629,7 +652,7 @@ export const appRouter = router({
       }),
 
     // ─── 데이터 분석 ─────────────────────────────────────────────────────────
-    getAnalytics: adminProcedure.query(async () => {
+    getAnalytics: staffProcedure.query(async () => {
       const [memberStats, couponStats, purchaseStats] = await Promise.all([
         getMemberStats(),
         getCouponStats(),
@@ -639,7 +662,7 @@ export const appRouter = router({
     }),
 
     // 생일 쿠폰 수동 발급 (스케줄러 대용)
-    issueBirthdayCoupons: adminProcedure.mutation(async () => {
+    issueBirthdayCoupons: branchAdminProcedure.mutation(async () => {
       const birthdayMembers = await getMembersWithBirthdayToday();
       const template = await getCouponTemplateByType("birthday");
       if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "생일 쿠폰 템플릿이 없습니다." });
@@ -667,6 +690,53 @@ export const appRouter = router({
 
       return { success: true, issued };
     }),
+
+    // ─── 권한 관리 (admin 전용) ──────────────────────────────────────────
+    listUsers: adminProcedure
+      .input(z.object({
+        search: z.string().optional(),
+        role: z.enum(["user", "branch_admin", "staff", "admin"]).optional(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }))
+      .query(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) return { items: [], total: 0 };
+        const { eq, like, or, and, desc, sql } = await import("drizzle-orm");
+        const { users } = await import("../drizzle/schema");
+        const conditions = [];
+        if (input.role) conditions.push(eq(users.role, input.role));
+        if (input.search) {
+          conditions.push(or(
+            like(users.name, `%${input.search}%`),
+            like(users.email, `%${input.search}%`)
+          ));
+        }
+        const where = conditions.length > 0 ? and(...conditions) : undefined;
+        const [items, countResult] = await Promise.all([
+          db.select().from(users).where(where).orderBy(desc(users.lastSignedIn)).limit(input.limit).offset(input.offset),
+          db.select({ count: sql<number>`count(*)` }).from(users).where(where),
+        ]);
+        return { items, total: Number(countResult[0]?.count ?? 0) };
+      }),
+
+    updateUserRole: adminProcedure
+      .input(z.object({
+        userId: z.number(),
+        role: z.enum(["user", "branch_admin", "staff", "admin"]),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // 자기 자신의 어드민 권한은 변경 불가
+        if (input.userId === ctx.user.id) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "자신의 권한은 변경할 수 없습니다." });
+        }
+        const db = await (await import("./db")).getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { eq } = await import("drizzle-orm");
+        const { users } = await import("../drizzle/schema");
+        await db.update(users).set({ role: input.role }).where(eq(users.id, input.userId));
+        return { success: true };
+      }),
   }),
 });
 

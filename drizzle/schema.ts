@@ -17,7 +17,10 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "branch_admin", "staff", "admin"]).default("user").notNull(),
+  // branch_admin: 지점 관리자 (회원/쿠폰 관리만)
+  // staff: 본사 스태프 (마케팅/운영/지원팀 - 대시보드+데이터 분석 포함)
+  // admin: 슬루퍼 어드민 (전체 + 권한 관리)
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
