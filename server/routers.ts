@@ -724,6 +724,7 @@ export const appRouter = router({
       .input(z.object({
         userId: z.number(),
         role: z.enum(["user", "branch_admin", "staff", "admin"]),
+        branchCode: z.string().max(20).optional().nullable(),
       }))
       .mutation(async ({ input, ctx }) => {
         // 자기 자신의 어드민 권한은 변경 불가
@@ -734,7 +735,10 @@ export const appRouter = router({
         if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
         const { eq } = await import("drizzle-orm");
         const { users } = await import("../drizzle/schema");
-        await db.update(users).set({ role: input.role }).where(eq(users.id, input.userId));
+        await db.update(users).set({
+          role: input.role,
+          branchCode: input.branchCode ?? null,
+        }).where(eq(users.id, input.userId));
         return { success: true };
       }),
   }),

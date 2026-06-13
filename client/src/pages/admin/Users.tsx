@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
-import { ShieldCheck, Search, Crown, Building2, Briefcase, User } from "lucide-react";
+import { ShieldCheck, Search, Crown, Building2, Briefcase, User, Edit3, Check, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +43,81 @@ const roleConfig: Record<Role, { label: string; desc: string; color: string; ico
     icon: User,
   },
 };
+
+// 인라인 지점 코드 편집 컴포넌트
+function BranchCodeEditor({
+  userId,
+  currentCode,
+  currentRole,
+  onSave,
+}: {
+  userId: number;
+  currentCode: string | null;
+  currentRole: Role;
+  onSave: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(currentCode ?? "");
+  const utils = trpc.useUtils();
+
+  const updateMutation = trpc.admin.updateUserRole.useMutation({
+    onSuccess: () => {
+      utils.admin.listUsers.invalidate();
+      setEditing(false);
+      toast.success("지점 코드가 저장되었습니다.");
+      onSave();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className={`text-sm font-mono ${currentCode ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+          {currentCode || "—"}
+        </span>
+        {currentRole === "branch_admin" && (
+          <button
+            onClick={() => { setValue(currentCode ?? ""); setEditing(true); }}
+            className="p-1 rounded hover:bg-muted transition-colors"
+          >
+            <Edit3 className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value.toUpperCase())}
+        placeholder="예: SINCHON"
+        className="h-7 text-xs w-28 font-mono"
+        maxLength={20}
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") updateMutation.mutate({ userId, role: currentRole, branchCode: value || null });
+          if (e.key === "Escape") setEditing(false);
+        }}
+      />
+      <button
+        onClick={() => updateMutation.mutate({ userId, role: currentRole, branchCode: value || null })}
+        disabled={updateMutation.isPending}
+        className="p-1 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
+      >
+        <Check className="w-3.5 h-3.5 text-primary" />
+      </button>
+      <button
+        onClick={() => setEditing(false)}
+        className="p-1 rounded hover:bg-muted transition-colors"
+      >
+        <X className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+    </div>
+  );
+}
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -103,7 +178,7 @@ export default function AdminUsers() {
           </p>
         </div>
 
-        {/* 역할 안내 */}
+        {/* 역할 안내 카드 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
           {(Object.entries(roleConfig) as [Role, typeof roleConfig[Role]][]).map(([role, cfg]) => (
             <div key={role} className={`rounded-xl border p-4 ${cfg.color}`}>
@@ -152,15 +227,16 @@ export default function AdminUsers() {
                 <tr className="border-b border-border/50 bg-muted/30">
                   <th className="text-left px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">사용자</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">마지막 로그인</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">현재 역할</th>
+                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">역할</th>
+                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">지점 코드</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">역할 변경</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
                 {query.isLoading ? (
-                  <tr><td colSpan={4} className="text-center py-12 text-muted-foreground text-sm">로딩 중...</td></tr>
+                  <tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">로딩 중...</td></tr>
                 ) : users.length === 0 ? (
-                  <tr><td colSpan={4} className="text-center py-12 text-muted-foreground text-sm">사용자가 없습니다</td></tr>
+                  <tr><td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">사용자가 없습니다</td></tr>
                 ) : (
                   users.map((u) => {
                     const cfg = roleConfig[u.role as Role] ?? roleConfig.user;
@@ -190,10 +266,22 @@ export default function AdminUsers() {
                           </span>
                         </td>
                         <td className="px-4 py-4">
+                          <BranchCodeEditor
+                            userId={u.id}
+                            currentCode={(u as typeof u & { branchCode?: string | null }).branchCode ?? null}
+                            currentRole={u.role as Role}
+                            onSave={() => utils.admin.listUsers.invalidate()}
+                          />
+                        </td>
+                        <td className="px-4 py-4">
                           <Select
                             value={u.role}
                             onValueChange={(newRole) => {
-                              updateRoleMutation.mutate({ userId: u.id, role: newRole as Role });
+                              updateRoleMutation.mutate({
+                                userId: u.id,
+                                role: newRole as Role,
+                                branchCode: (u as typeof u & { branchCode?: string | null }).branchCode,
+                              });
                             }}
                             disabled={updateRoleMutation.isPending}
                           >
@@ -218,11 +306,14 @@ export default function AdminUsers() {
         </div>
 
         {/* 안내 */}
-        <div className="mt-6 bg-muted/30 rounded-xl p-4 text-sm text-muted-foreground">
-          <p className="font-semibold text-foreground mb-2">권한 부여 방법</p>
-          <p>1. 권한을 부여할 직원이 <strong>membership.nops.kr</strong>에 Manus 계정으로 로그인합니다.</p>
-          <p>2. 이 화면에서 해당 계정을 검색 후 역할을 변경합니다.</p>
-          <p>3. 변경 즉시 적용됩니다 (재로그인 필요).</p>
+        <div className="mt-6 bg-muted/30 rounded-xl p-5 space-y-3">
+          <p className="font-semibold text-foreground text-sm">권한 부여 및 지점 코드 설정 방법</p>
+          <div className="text-sm text-muted-foreground space-y-1.5">
+            <p><span className="font-medium text-foreground">1단계</span> — 직원이 <code className="bg-muted px-1.5 py-0.5 rounded text-xs">membership.nops.kr/admin</code>에 구글 계정으로 로그인합니다.</p>
+            <p><span className="font-medium text-foreground">2단계</span> — 이 화면에서 해당 계정을 검색 후 역할을 변경합니다.</p>
+            <p><span className="font-medium text-foreground">3단계</span> — <strong>지점 관리자</strong>로 설정 시 지점 코드 컬럼의 ✏️ 버튼을 클릭해 코드를 입력합니다.</p>
+            <p className="text-xs pt-1">지점 코드 예시: <code className="bg-muted px-1.5 py-0.5 rounded">SINCHON</code>, <code className="bg-muted px-1.5 py-0.5 rounded">GANGNAM</code>, <code className="bg-muted px-1.5 py-0.5 rounded">BRANCH_01</code></p>
+          </div>
         </div>
       </div>
     </AdminLayout>

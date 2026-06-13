@@ -21,6 +21,7 @@ export const users = mysqlTable("users", {
   // branch_admin: 지점 관리자 (회원/쿠폰 관리만)
   // staff: 본사 스태프 (마케팅/운영/지원팀 - 대시보드+데이터 분석 포함)
   // admin: 슬루퍼 어드민 (전체 + 권한 관리)
+  branchCode: varchar("branchCode", { length: 20 }), // 지점 코드 (branch_admin 전용, 예: BRANCH_01, SINCHON)
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
