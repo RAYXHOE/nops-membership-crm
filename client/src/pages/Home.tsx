@@ -1,6 +1,7 @@
 import { Link } from "wouter";
-import { Crown, Gift, Star, ChevronRight, Sparkles } from "lucide-react";
+import { Crown, Gift, Star, ChevronRight, Sparkles, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const benefits = [
   {
@@ -24,6 +25,9 @@ const benefits = [
 ];
 
 export default function Home() {
+  const { user, isAuthenticated } = useAuth();
+  const isAdmin = isAuthenticated && user?.role === "admin";
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -36,7 +40,15 @@ export default function Home() {
               <span className="text-muted-foreground text-xs ml-1.5 hidden sm:inline">Steak House</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Link href="/admin">
+                <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 text-xs tracking-wide gap-1.5 font-semibold">
+                  <Settings className="w-3.5 h-3.5" />
+                  관리자
+                </Button>
+              </Link>
+            )}
             <Link href="/mypage">
               <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-xs tracking-wide">
                 마이페이지
