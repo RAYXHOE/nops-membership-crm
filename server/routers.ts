@@ -286,6 +286,19 @@ export const appRouter = router({
         return getCouponsByMemberId(input.memberId);
       }),
 
+    // 결혼기념일 업데이트
+    updateAnniversary: publicProcedure
+      .input(z.object({
+        memberId: z.number(),
+        anniversaryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+      }))
+      .mutation(async ({ input }) => {
+        await updateMember(input.memberId, {
+          anniversaryDate: input.anniversaryDate ? new Date(input.anniversaryDate) : null,
+        });
+        return { success: true };
+      }),
+
     // 마케팅 동의 변경 (마이페이지에서 고객이 직접 변경)
     updateMarketingConsent: publicProcedure
       .input(
@@ -705,6 +718,49 @@ export const appRouter = router({
 
       return { success: true, issued };
     }),
+
+    // ─── 스태프 관리 (admin 전용) ──────────────────────────────────────────
+    listStaff: adminProcedure.query(async () => {
+      const db = await (await import("./db")).getDb();
+      if (!db) return [];
+      const { ne } = await import("drizzle-orm");
+      const { users } = await import("../drizzle/schema");
+      return db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+          branchCode: users.branchCode,
+          lastSignedIn: users.lastSignedIn,
+        })
+        .from(users)
+        .where(ne(users.role, "user"))
+        .orderBy(users.createdAt);
+    }),
+
+    updateStaff: adminProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          branchCode: z.string().max(20).nullable(),
+          role: z.enum(["user", "admin", "branch_admin", "staff"]).optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { eq } = await import("drizzle-orm");
+        const { users } = await import("../drizzle/schema");
+        await db
+          .update(users)
+          .set({
+            ...(input.branchCode !== undefined ? { branchCode: input.branchCode } : {}),
+            ...(input.role !== undefined ? { role: input.role } : {}),
+          })
+          .where(eq(users.id, input.id));
+        return { success: true };
+      }),
 
     // ─── 권한 관리 (admin 전용) ──────────────────────────────────────────
     listUsers: adminProcedure
