@@ -74,6 +74,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const userRole = user?.role ?? "user";
   const allowedRoles = ["branch_admin", "staff", "admin"];
 
+  // ─── 모든 Hook은 조기 return 이전에 위치해야 함 (React Hook 규칙) ───────────
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       window.location.href = getLoginUrl();
@@ -87,6 +88,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [loading, isAuthenticated, userRole]);
 
+  // 지점 관리자가 /admin 접근 시 /admin/members로 리다이렉트
+  useEffect(() => {
+    if (!loading && isAuthenticated && userRole === "branch_admin" && location === "/admin") {
+      navigate("/admin/members");
+    }
+  }, [loading, isAuthenticated, userRole, location]);
+
+  // 현재 역할에서 접근 가능한 메뉴만 필터링
+  const navItems = allNavItems.filter((item) => item.roles.includes(userRole));
+
+  // ─── 조기 return (Hook 이후에 위치) ─────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -99,16 +111,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   if (!isAuthenticated || !allowedRoles.includes(userRole)) return null;
-
-  // 현재 역할에서 접근 가능한 메뉴만 필터링
-  const navItems = allNavItems.filter((item) => item.roles.includes(userRole));
-
-  // 지점 관리자가 대시보드 접근 시 회원 관리로 리다이렉트
-  useEffect(() => {
-    if (userRole === "branch_admin" && location === "/admin") {
-      navigate("/admin/members");
-    }
-  }, [userRole, location]);
 
   return (
     <div className="min-h-screen flex bg-background">
