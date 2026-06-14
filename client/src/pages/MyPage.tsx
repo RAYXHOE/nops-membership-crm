@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearch, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { Crown, ArrowLeft, Search, Gift, CheckCircle2, Clock, XCircle, QrCode, Copy, UserPlus, Bell, BellOff, Loader2 } from "lucide-react";
+import { Crown, ArrowLeft, Search, Gift, CheckCircle2, Clock, XCircle, QrCode, Copy, UserPlus, Bell, BellOff, Loader2, Heart, Edit3, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +67,18 @@ export default function MyPage() {
     navigator.clipboard.writeText(code);
     toast.success("쿠폰 코드가 복사되었습니다.");
   };
+
+  const [anniversaryEditing, setAnniversaryEditing] = useState(false);
+  const [anniversaryInput, setAnniversaryInput] = useState("");
+
+  const updateAnniversaryMutation = trpc.membership.updateAnniversary.useMutation({
+    onSuccess: () => {
+      utils.membership.getByEmail.invalidate();
+      setAnniversaryEditing(false);
+      toast.success("결혼기념일이 저장되었습니다. 매년 기념일에 15% 할인 쿠폰이 자동 발급됩니다!");
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const marketingConsentMutation = trpc.membership.updateMarketingConsent.useMutation({
     onSuccess: (data) => {
@@ -166,6 +178,68 @@ export default function MyPage() {
                 <p className="text-3xl font-extrabold text-primary">{activeCoupons.length}</p>
                 <p className="text-xs text-muted-foreground">장</p>
               </div>
+            </div>
+
+            {/* 결혼기념일 */}
+            <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/30 border-border/50 mb-3">
+              <div className="flex items-center gap-2.5">
+                <Heart className="w-4 h-4 text-rose-400" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">결혼기념일</p>
+                  {anniversaryEditing ? (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Input
+                        value={anniversaryInput}
+                        onChange={(e) => setAnniversaryInput(e.target.value)}
+                        placeholder="예: 2015-05-20"
+                        className="h-7 text-xs w-32 font-mono"
+                        maxLength={10}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && anniversaryInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            updateAnniversaryMutation.mutate({ memberId: member.id, anniversaryDate: anniversaryInput });
+                          }
+                          if (e.key === "Escape") setAnniversaryEditing(false);
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          if (anniversaryInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                            updateAnniversaryMutation.mutate({ memberId: member.id, anniversaryDate: anniversaryInput });
+                          } else {
+                            toast.error("날짜 형식을 확인해주세요 (YYYY-MM-DD)");
+                          }
+                        }}
+                        disabled={updateAnniversaryMutation.isPending}
+                        className="p-1 rounded bg-primary/10 hover:bg-primary/20"
+                      >
+                        {updateAnniversaryMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Check className="w-3.5 h-3.5 text-primary" />}
+                      </button>
+                      <button onClick={() => setAnniversaryEditing(false)} className="p-1 rounded hover:bg-muted">
+                        <X className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {(member as typeof member & { anniversaryDate?: string | null }).anniversaryDate
+                        ? new Date((member as typeof member & { anniversaryDate?: string | null }).anniversaryDate!).toLocaleDateString("ko-KR", { month: "long", day: "numeric" }) + " · 매년 15% 쿠폰 자동 발급"
+                        : "입력 시 매년 기념일에 15% 쿠폰 자동 발급"}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {!anniversaryEditing && (
+                <button
+                  onClick={() => {
+                    const existing = (member as typeof member & { anniversaryDate?: string | null }).anniversaryDate;
+                    setAnniversaryInput(existing ? existing.slice(0, 10) : "");
+                    setAnniversaryEditing(true);
+                  }}
+                  className="p-1.5 rounded hover:bg-muted transition-colors"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
+              )}
             </div>
 
             {/* 마케팅 동의 현황 */}
