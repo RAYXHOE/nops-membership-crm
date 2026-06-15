@@ -720,24 +720,47 @@ export const appRouter = router({
     }),
 
     // ─── 스태프 관리 (admin 전용) ──────────────────────────────────────────
-    listStaff: adminProcedure.query(async () => {
-      const db = await (await import("./db")).getDb();
-      if (!db) return [];
-      const { ne } = await import("drizzle-orm");
-      const { users } = await import("../drizzle/schema");
-      return db
-        .select({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          role: users.role,
-          branchCode: users.branchCode,
-          lastSignedIn: users.lastSignedIn,
+    listStaff: adminProcedure
+      .input(
+        z.object({
+          search: z.string().optional(),
+          roleFilter: z.enum(["user", "admin", "branch_admin", "staff"]).optional(),
         })
-        .from(users)
-        .where(ne(users.role, "user"))
-        .orderBy(users.createdAt);
-    }),
+      )
+      .query(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) return [];
+        const { users } = await import("../drizzle/schema");
+        const { ne, and, or, like, eq } = await import("drizzle-orm");
+
+        const conditions: ReturnType<typeof ne>[] = [ne(users.role, "user" as const)];
+
+        if (input.roleFilter) {
+          conditions.push(eq(users.role, input.roleFilter as typeof users.role._.data) as ReturnType<typeof ne>);
+        }
+
+        if (input.search) {
+          conditions.push(
+            or(
+              like(users.name, `%${input.search}%`),
+              like(users.email, `%${input.search}%`)
+            ) as unknown as ReturnType<typeof ne>
+          );
+        }
+
+        return db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            role: users.role,
+            branchCode: users.branchCode,
+            lastSignedIn: users.lastSignedIn,
+          })
+          .from(users)
+          .where(and(...conditions))
+          .orderBy(users.createdAt);
+      }),
 
     updateStaff: adminProcedure
       .input(
