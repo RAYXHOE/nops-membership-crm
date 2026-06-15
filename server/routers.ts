@@ -70,10 +70,19 @@ function hasRole(userRole: string, allowed: AllowedRole[]): boolean {
   return (allowed as string[]).includes(userRole);
 }
 
-// 슬루퍼 어드민만
+// 어드민 + 스태프 + 지점 관리자 (admin 대시보드 접근)
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  const allowedRoles = ["admin", "staff", "branch_admin"];
+  if (!allowedRoles.includes(ctx.user.role)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "접근 권한이 없습니다." });
+  }
+  return next({ ctx });
+});
+
+// 슈퍼 어드민만 (admin 전용 기능)
+const superAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
-    throw new TRPCError({ code: "FORBIDDEN", message: "관리자 권한이 필요합니다." });
+    throw new TRPCError({ code: "FORBIDDEN", message: "슈퍼 어드민 권한이 필요합니다." });
   }
   return next({ ctx });
 });
@@ -779,7 +788,7 @@ export const appRouter = router({
     }),
 
     // ─── 스태프 관리 (admin 전용) ──────────────────────────────────────────
-    listStaff: adminProcedure
+    listStaff: superAdminProcedure
       .input(
         z.object({
           search: z.string().optional(),
@@ -821,7 +830,7 @@ export const appRouter = router({
           .orderBy(users.createdAt);
       }),
 
-    updateStaff: adminProcedure
+    updateStaff: superAdminProcedure
       .input(
         z.object({
           id: z.number(),
@@ -845,7 +854,7 @@ export const appRouter = router({
       }),
 
     // ─── 권한 관리 (admin 전용) ──────────────────────────────────────────
-    listUsers: adminProcedure
+    listUsers: superAdminProcedure
       .input(z.object({
         search: z.string().optional(),
         role: z.enum(["user", "branch_admin", "staff", "admin"]).optional(),
@@ -873,7 +882,7 @@ export const appRouter = router({
         return { items, total: Number(countResult[0]?.count ?? 0) };
       }),
 
-    updateUserRole: adminProcedure
+    updateUserRole: superAdminProcedure
       .input(z.object({
         userId: z.number(),
         role: z.enum(["user", "branch_admin", "staff", "admin"]),

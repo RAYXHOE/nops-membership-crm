@@ -1,104 +1,37 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
-  BarChart3,
-  ChevronRight,
-  Crown,
-  LogOut,
-  Tag,
-  Users,
-  LayoutDashboard,
-  ShieldCheck,
+  BarChart3, ChevronRight, Crown, LogOut, Tag,
+  Users, LayoutDashboard, UserCog, ShieldOff,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
 import { useEffect } from "react";
 
-// 역할별 접근 가능 메뉴 정의
-const allNavItems = [
-  {
-    href: "/admin",
-    icon: LayoutDashboard,
-    label: "대시보드",
-    roles: ["staff", "admin"], // 지점 관리자는 대시보드 미표시
-    exact: true,
-  },
-  {
-    href: "/admin/members",
-    icon: Users,
-    label: "회원 관리",
-    roles: ["branch_admin", "staff", "admin"],
-    exact: false,
-  },
-  {
-    href: "/admin/coupons",
-    icon: Tag,
-    label: "쿠폰 관리",
-    roles: ["branch_admin", "staff", "admin"],
-    exact: false,
-  },
-  {
-    href: "/admin/analytics",
-    icon: BarChart3,
-    label: "데이터 분석",
-    roles: ["staff", "admin"],
-    exact: false,
-  },
-  {
-    href: "/admin/users",
-    icon: ShieldCheck,
-    label: "권한 관리",
-    roles: ["admin"],
-    exact: false,
-  },
+const navItems = [
+  { href: "/admin", icon: LayoutDashboard, label: "대시보드", roles: ["admin", "staff", "branch_admin"] },
+  { href: "/admin/members", icon: Users, label: "회원 관리", roles: ["admin", "staff", "branch_admin"] },
+  { href: "/admin/coupons", icon: Tag, label: "쿠폰 관리", roles: ["admin", "staff", "branch_admin"] },
+  { href: "/admin/analytics", icon: BarChart3, label: "데이터 분석", roles: ["admin", "staff"] },
+  { href: "/admin/users", icon: UserCog, label: "권한 관리", roles: ["admin"] },
 ];
 
-// 역할 표시명
-const roleLabels: Record<string, string> = {
-  admin: "슈퍼 어드민",
-  staff: "본사 스태프",
-  branch_admin: "지점 관리자",
-  user: "일반 사용자",
-};
+const ALLOWED_ROLES = ["admin", "staff", "branch_admin"];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAuthenticated } = useAuth();
   const [location, navigate] = useLocation();
+
   const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => {
-      navigate("/");
-    },
+    onSuccess: () => navigate("/"),
   });
 
-  const userRole = user?.role ?? "user";
-  const allowedRoles = ["branch_admin", "staff", "admin"];
-
-  // ─── 모든 Hook은 조기 return 이전에 위치해야 함 (React Hook 규칙) ───────────
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       window.location.href = getLoginUrl();
     }
   }, [loading, isAuthenticated]);
 
-  useEffect(() => {
-    if (!loading && isAuthenticated && !allowedRoles.includes(userRole)) {
-      toast.error("관리자 권한이 필요합니다.");
-      navigate("/");
-    }
-  }, [loading, isAuthenticated, userRole]);
-
-  // 지점 관리자가 /admin 접근 시 /admin/members로 리다이렉트
-  useEffect(() => {
-    if (!loading && isAuthenticated && userRole === "branch_admin" && location === "/admin") {
-      navigate("/admin/members");
-    }
-  }, [loading, isAuthenticated, userRole, location]);
-
-  // 현재 역할에서 접근 가능한 메뉴만 필터링
-  const navItems = allNavItems.filter((item) => item.roles.includes(userRole));
-
-  // ─── 조기 return (Hook 이후에 위치) ─────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -110,13 +43,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!isAuthenticated || !allowedRoles.includes(userRole)) return null;
+  if (!isAuthenticated) return null;
+
+  // role이 user이거나 없으면 권한 없음 화면
+  if (!ALLOWED_ROLES.includes(user?.role ?? "")) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-sm px-6">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <ShieldOff className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground mb-2">접근 권한이 없습니다</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            관리자에게 권한 부여를 요청하세요.<br />
+            권한 부여 후 다시 로그인해주세요.
+          </p>
+          <div className="bg-muted rounded-lg px-4 py-3 mb-6">
+            <p className="text-xs text-muted-foreground font-mono">{user?.email}</p>
+          </div>
+          <button
+            onClick={() => logoutMutation.mutate()}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mx-auto"
+          >
+            <LogOut className="w-4 h-4" />
+            로그아웃
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 역할별 접근 가능한 메뉴만 표시
+  const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role ?? ""));
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Sidebar */}
       <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col shrink-0">
-        {/* Logo */}
         <div className="px-6 py-8 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full coupon-gold-shimmer flex items-center justify-center">
@@ -129,34 +91,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        {/* 역할 배지 */}
-        <div className="px-6 py-3 border-b border-sidebar-border">
-          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
-            userRole === "admin"
-              ? "bg-yellow-500/20 text-yellow-400"
-              : userRole === "staff"
-              ? "bg-blue-500/20 text-blue-400"
-              : "bg-green-500/20 text-green-400"
-          }`}>
-            {roleLabels[userRole] ?? userRole}
-          </span>
-        </div>
-
-        {/* Nav */}
         <nav className="flex-1 px-3 py-6 space-y-1">
-          {navItems.map((item) => {
-            const isActive = item.exact
-              ? location === item.href
-              : location.startsWith(item.href);
+          {visibleNavItems.map((item) => {
+            const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
             return (
               <Link key={item.href} href={item.href}>
-                <div
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group ${
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-primary"
-                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  }`}
-                >
+                <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group ${
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-primary"
+                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                }`}>
                   <item.icon className="w-4 h-4 shrink-0" />
                   <span className="text-sm font-medium">{item.label}</span>
                   {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
@@ -166,13 +110,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        {/* User */}
         <div className="px-3 py-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3 px-3 py-2 mb-1">
             <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-              <span className="text-sidebar-primary text-xs font-semibold">
-                {user?.name?.charAt(0) ?? "A"}
-              </span>
+              <span className="text-sidebar-primary text-xs font-semibold">{user?.name?.charAt(0) ?? "A"}</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sidebar-foreground text-sm font-medium truncate">{user?.name ?? "관리자"}</p>
@@ -189,10 +130,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
 }
