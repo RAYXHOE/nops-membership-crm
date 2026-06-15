@@ -466,14 +466,14 @@ export async function getCouponsExpiringInDays(days: number) {
   return result;
 }
 
-// 결혼기념일 쿠폰 발급 대상 조회 (오늘 결혼기념일인 회원 중 올해 쿠폰 미발급자)
-export async function getMembersWithAnniversaryToday() {
+// 결혼기념일 쿠폰 발급 대상 조회 (이번 달 결혼기념일인 회원 중 올해 쿠폰 미발급자)
+// 매월 1일에 실행 → 해당 월에 결혼기념일인 회원 전체 조회
+export async function getMembersWithAnniversaryThisMonth() {
   const db = await getDb();
   if (!db) return [];
 
   const today = new Date();
   const month = today.getMonth() + 1;
-  const day = today.getDate();
   const year = today.getFullYear();
 
   const result = await db
@@ -483,7 +483,6 @@ export async function getMembersWithAnniversaryToday() {
       and(
         eq(members.status, "active"),
         sql`MONTH(anniversaryDate) = ${month}`,
-        sql`DAY(anniversaryDate) = ${day}`,
         sql`anniversaryDate IS NOT NULL`
       )
     );
@@ -508,14 +507,17 @@ export async function getMembersWithAnniversaryToday() {
   return filtered;
 }
 
-// 생일 쿠폰 발급 대상 조회 (오늘 생일인 회원 중 올해 쿠폰 미발급자)
-export async function getMembersWithBirthdayToday() {
+// 구 함수명 호환성 유지 (기존 코드와의 호환성)
+export const getMembersWithAnniversaryToday = getMembersWithAnniversaryThisMonth;
+
+// 생일 쿠폰 발급 대상 조회 (이번 달 생일인 회원 중 올해 쿠폰 미발급자)
+// 매월 1일에 실행 → 해당 월에 생일인 회원 전체 조회
+export async function getMembersWithBirthdayThisMonth() {
   const db = await getDb();
   if (!db) return [];
 
   const today = new Date();
   const month = today.getMonth() + 1;
-  const day = today.getDate();
   const year = today.getFullYear();
 
   const result = await db
@@ -524,8 +526,7 @@ export async function getMembersWithBirthdayToday() {
     .where(
       and(
         eq(members.status, "active"),
-        sql`MONTH(birthDate) = ${month}`,
-        sql`DAY(birthDate) = ${day}`
+        sql`MONTH(birthDate) = ${month}`
       )
     );
 
@@ -548,3 +549,6 @@ export async function getMembersWithBirthdayToday() {
 
   return filtered;
 }
+
+// 구 함수명 호환성 유지
+export const getMembersWithBirthdayToday = getMembersWithBirthdayThisMonth;
