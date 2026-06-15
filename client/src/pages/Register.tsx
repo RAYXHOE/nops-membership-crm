@@ -111,11 +111,18 @@ export default function Register() {
   };
 
   // 전체 동의 처리
-  const allChecked = privacyConsent && marketingConsent;
+  const allChecked: boolean | "indeterminate" =
+    privacyConsent && marketingConsent
+      ? true
+      : privacyConsent || marketingConsent
+      ? "indeterminate"
+      : false;
+
   const handleAllConsent = () => {
-    const newVal = !allChecked;
-    setValue("privacyConsent", newVal);
-    setValue("marketingConsent", newVal);
+    // 전체 체크 또는 일부만 체크된 상태에서 클릭 시 모두 체크
+    const newVal = allChecked !== true;
+    setValue("privacyConsent", newVal, { shouldValidate: true });
+    setValue("marketingConsent", newVal, { shouldValidate: false });
   };
 
   return (
@@ -298,8 +305,8 @@ export default function Register() {
             >
               <Checkbox
                 checked={allChecked}
-                onCheckedChange={handleAllConsent}
                 className="pointer-events-none"
+                aria-label="전체 동의"
               />
               <span className="text-sm font-bold text-foreground">전체 동의</span>
               {allChecked && <CheckCircle2 className="w-4 h-4 text-primary ml-auto" />}
