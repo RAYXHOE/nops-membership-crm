@@ -81,7 +81,7 @@ export default function RegisterSuccess() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <Link href={`/mypage${memberId ? `?memberId=${memberId}` : ""}`}>
+          <Link href={`/mypage?memberId=${memberId}`}>
             <Button className="w-full h-12 text-sm tracking-wider gap-2 font-semibold">
               내 쿠폰 확인하기
               <ArrowRight className="w-4 h-4" />

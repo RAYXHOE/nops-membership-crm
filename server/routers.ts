@@ -296,6 +296,28 @@ export const appRouter = router({
         return getCouponsByMemberId(input.memberId);
       }),
 
+    // 마케팅 동의 변경 (마이페이지 철회 전용)
+    updateMarketing: publicProcedure
+      .input(z.object({ memberId: z.number(), marketingConsent: z.boolean() }))
+      .mutation(async ({ input }) => {
+        const member = await getMemberById(input.memberId);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND" });
+        const now = new Date();
+        await createConsentLog({
+          memberId: input.memberId,
+          consentType: input.marketingConsent ? "marketing" : "marketing_withdraw",
+          agreed: input.marketingConsent,
+          consentContent: MARKETING_CONSENT_TEXT,
+          ipAddress: undefined,
+          userAgent: "mypage",
+        });
+        await updateMember(input.memberId, {
+          marketingConsent: input.marketingConsent,
+          marketingConsentAt: input.marketingConsent ? now : undefined,
+        });
+        return { success: true };
+      }),
+
     // OTP 발송
     sendOtp: publicProcedure
       .input(z.object({ email: z.string().email() }))

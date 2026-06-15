@@ -154,6 +154,11 @@ function CouponView({ memberId }: { memberId: number }) {
   const usedCoupons = coupons.filter((c) => c.status !== "active");
   const copyCode = (code: string) => { navigator.clipboard.writeText(code); toast.success("쿠폰 코드가 복사되었습니다."); };
 
+  const updateMarketingMutation = trpc.membership.updateMarketing.useMutation({
+    onSuccess: () => { toast.success("마케팅 수신이 철회되었습니다."); memberInfoQuery.refetch(); },
+    onError: (err) => toast.error(err.message),
+  });
+
   return (
     <>
       {member && (
@@ -170,6 +175,24 @@ function CouponView({ memberId }: { memberId: number }) {
               <p className="text-xs text-muted-foreground">장</p>
             </div>
           </div>
+          {member.marketingConsent && (
+            <div className="flex items-center justify-between py-3 border-t border-border/30">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-xs text-muted-foreground">마케팅 정보 수신 중</span>
+              </div>
+              <button
+                onClick={() => {
+                  if (confirm("마케팅 정보 수신을 철회하시겠습니까?")) {
+                    updateMarketingMutation.mutate({ memberId, marketingConsent: false });
+                  }
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+              >
+                수신 철회
+              </button>
+            </div>
+          )}
           <AnniversarySection memberId={memberId} current={(member as typeof member & { anniversaryDate?: string | null }).anniversaryDate ?? null} onUpdated={() => memberInfoQuery.refetch()} />
         </div>
       )}
