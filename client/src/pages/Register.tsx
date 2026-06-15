@@ -49,6 +49,14 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+// 생년월일 자동 포맷 (숫자 입력 → YYYY-MM-DD)
+function formatBirthDate(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+}
+
 // Dialog를 독립 컴포넌트로 분리 → Hook 충돌 방지
 function ConsentDialog({
   title,
@@ -111,6 +119,7 @@ export default function Register() {
 
   const privacyConsent = watch("privacyConsent");
   const marketingConsent = watch("marketingConsent");
+  const [birthDisplay, setBirthDisplay] = useState("");
 
   const registerMutation = trpc.membership.register.useMutation({
     onSuccess: (data) => {
@@ -186,7 +195,25 @@ export default function Register() {
               <Label htmlFor="birthDate" className="text-sm font-semibold text-foreground">
                 생년월일 <span className="text-destructive">*</span>
               </Label>
-              <Input id="birthDate" type="date" {...register("birthDate")} className="h-11" />
+              <Input
+                id="birthDate"
+                type="text"
+                inputMode="numeric"
+                placeholder="예: 19901231"
+                value={birthDisplay}
+                onChange={(e) => {
+                  const formatted = formatBirthDate(e.target.value);
+                  setBirthDisplay(formatted);
+                  if (formatted.length === 10) {
+                    setValue("birthDate", formatted, { shouldValidate: true });
+                  } else {
+                    setValue("birthDate", "", { shouldValidate: false });
+                  }
+                }}
+                maxLength={10}
+                className="h-11"
+              />
+              <p className="text-xs text-muted-foreground">숫자 8자리 입력 시 자동 포맷 (예: 19901231 → 1990-12-31)</p>
               {errors.birthDate && <p className="text-destructive text-xs">{errors.birthDate.message}</p>}
             </div>
           </div>

@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import { sdk } from "./_core/sdk";
 import {
-  getMembersWithBirthdayToday,
-  getMembersWithAnniversaryToday,
+  getMembersWithBirthdayThisMonth,
+  getMembersWithAnniversaryThisMonth,
   getMembersForCorkageReissue,
   getCouponTemplateByType,
   issueCoupon,
@@ -32,7 +32,7 @@ export async function birthdayCouponHandler(req: Request, res: Response) {
       return res.status(403).json({ error: "cron-only endpoint" });
     }
 
-    const birthdayMembers = await getMembersWithBirthdayToday();
+    const birthdayMembers = await getMembersWithBirthdayThisMonth();
     const template = await getCouponTemplateByType("birthday");
 
     if (!template) {
@@ -202,7 +202,7 @@ export async function anniversaryCouponHandler(req: Request, res: Response) {
       return res.status(403).json({ error: "cron-only endpoint" });
     }
 
-    const anniversaryMembers = await getMembersWithAnniversaryToday();
+    const anniversaryMembers = await getMembersWithAnniversaryThisMonth();
     const template = await getCouponTemplateByType("anniversary");
 
     if (!template) {
