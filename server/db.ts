@@ -651,3 +651,9 @@ export async function verifyOtp(email: string, code: string): Promise<boolean> {
   await db.update(otpCodes).set({ used: true }).where(eq(otpCodes.id, result[0].id));
   return true;
 }
+
+export async function deleteExpiredOtps() {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(otpCodes).where(lte(otpCodes.expiresAt, new Date()));
+}

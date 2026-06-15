@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 import {
   Crown, ArrowLeft, Search, Gift, CheckCircle2, Clock,
@@ -223,15 +223,29 @@ function CouponView({ memberId }: { memberId: number }) {
 type Step = "email" | "otp" | "coupons";
 
 export default function MyPage() {
-  const [step, setStep] = useState<Step>("email");
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+
+  // 가입 완료 후 자동 진입: memberId가 URL에 있으면 OTP 건너뜀
+  const urlMemberId = params.get("memberId") ? Number(params.get("memberId")) : null;
+
+  const [step, setStep] = useState<Step>(urlMemberId ? "coupons" : "email");
   const [email, setEmail] = useState("");
-  const [memberId, setMemberId] = useState<number | null>(null);
+  const [memberId, setMemberId] = useState<number | null>(urlMemberId);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container flex items-center h-16">
-          <Link href="/"><button className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"><ArrowLeft className="w-4 h-4" />홈</button></Link>
-          <div className="flex items-center gap-2 mx-auto"><Crown className="w-5 h-5 text-primary" /><span className="font-bold tracking-widest text-sm uppercase">NOPS</span></div>
+          <Link href="/">
+            <button className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm">
+              <ArrowLeft className="w-4 h-4" />홈
+            </button>
+          </Link>
+          <div className="flex items-center gap-2 mx-auto">
+            <Crown className="w-5 h-5 text-primary" />
+            <span className="font-bold tracking-widest text-sm uppercase">NOPS</span>
+          </div>
         </div>
       </header>
       <div className="container py-12 max-w-2xl">

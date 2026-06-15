@@ -315,3 +315,24 @@ export async function corkageReissueHandler(req: Request, res: Response) {
     return res.status(500).json({ error: String(err), timestamp: new Date().toISOString() });
   }
 }
+
+/**
+ * POST /api/scheduled/cleanup-expired-otps
+ * 매일 자정(KST 00:00) 실행
+ * 만료된 OTP 레코드 자동 삭제
+ */
+export async function cleanupExpiredOtpsHandler(req: Request, res: Response) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user.isCron) {
+      return res.status(403).json({ error: "cron-only endpoint" });
+    }
+    const { deleteExpiredOtps } = await import("./db");
+    await deleteExpiredOtps();
+    console.log(`[OTP Cleanup] Expired OTPs deleted at ${new Date().toISOString()}`);
+    return res.json({ ok: true, timestamp: new Date().toISOString() });
+  } catch (err) {
+    console.error("[OTP Cleanup] Error:", err);
+    return res.status(500).json({ error: String(err), timestamp: new Date().toISOString() });
+  }
+}

@@ -8,7 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler, corkageReissueHandler } from "../scheduledHandlers";
+import { birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler, corkageReissueHandler, cleanupExpiredOtpsHandler } from "../scheduledHandlers";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -42,6 +42,7 @@ async function startServer() {
   app.post("/api/scheduled/coupon-expiry-reminder", couponExpiryReminderHandler);
   app.post("/api/scheduled/anniversary-coupons", anniversaryCouponHandler);
   app.post("/api/scheduled/corkage-reissue", corkageReissueHandler);
+  app.post("/api/scheduled/cleanup-expired-otps", cleanupExpiredOtpsHandler);
 
   // tRPC API
   app.use(
