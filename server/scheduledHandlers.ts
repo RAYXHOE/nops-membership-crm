@@ -3,6 +3,7 @@ import { sdk } from "./_core/sdk";
 import {
   getMembersWithBirthdayToday,
   getMembersWithAnniversaryToday,
+  getMembersForCorkageReissue,
   getCouponTemplateByType,
   issueCoupon,
   getCouponsExpiringInDays,
@@ -262,5 +263,55 @@ export async function anniversaryCouponHandler(req: Request, res: Response) {
       error: String(err),
       timestamp: new Date().toISOString(),
     });
+  }
+}
+
+/**
+ * POST /api/scheduled/corkage-reissue
+ * 매일 자정(KST) 실행
+ * 콜키지 프리 쿠폰 사용 후 14일 된 회원에게 자동 재발급
+ */
+export async function corkageReissueHandler(req: Request, res: Response) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user.isCron) {
+      return res.status(403).json({ error: "cron-only endpoint" });
+    }
+
+    const targetMembers = await getMembersForCorkageReissue();
+    const template = await getCouponTemplateByType("corkage_free");
+
+    if (!template) {
+      return res.status(500).json({ error: "corkage_free template not found" });
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setDate(expiresAt.getDate() + 45);
+    expiresAt.setHours(23, 59, 59, 0);
+
+    let issued = 0;
+
+    for (const member of targetMembers) {
+      const couponCode = generateCouponCode("CORK");
+      await issueCoupon({
+        memberId: member.id,
+        templateId: template.id,
+        code: couponCode,
+        type: "corkage_free",
+        name: template.name,
+        description: "콜키지 프리 쿠폰 자동 재발급",
+        expiresAt,
+      });
+      // 솔라피 알림톡 연동 시 아래 주석 해제
+      // await sendCorkageReissueAlimtalk({ to: member.phone, name: member.name, couponCode, expiresAt });
+      issued++;
+    }
+
+    console.log(`[Corkage Reissue] Issued ${issued} coupons on ${now.toISOString().slice(0, 10)}`);
+    return res.json({ ok: true, issued, date: now.toISOString().slice(0, 10) });
+  } catch (err) {
+    console.error("[Corkage Reissue] Error:", err);
+    return res.status(500).json({ error: String(err), timestamp: new Date().toISOString() });
   }
 }

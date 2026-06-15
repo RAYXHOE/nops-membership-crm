@@ -552,3 +552,69 @@ export async function getMembersWithBirthdayThisMonth() {
 
 // 구 함수명 호환성 유지
 export const getMembersWithBirthdayToday = getMembersWithBirthdayThisMonth;
+
+// 콜키지 프리 쿠폰 사용 후 14일 된 회원 조회 (재발급 대상)
+export async function getMembersForCorkageReissue() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const now = new Date();
+  // 14일 전 날짜 범위 (당일 00:00 ~ 23:59)
+  const targetStart = new Date(now);
+  targetStart.setDate(targetStart.getDate() - 14);
+  targetStart.setHours(0, 0, 0, 0);
+
+  const targetEnd = new Date(targetStart);
+  targetEnd.setHours(23, 59, 59, 999);
+
+  // 14일 전에 콜키지 프리 쿠폰을 사용한 회원 조회
+  const usedCoupons = await db
+    .select({
+      memberId: coupons.memberId,
+      usedAt: coupons.usedAt,
+    })
+    .from(coupons)
+    .where(
+      and(
+        eq(coupons.type, "corkage_free"),
+        eq(coupons.status, "used"),
+        gte(coupons.usedAt, targetStart),
+        lte(coupons.usedAt, targetEnd)
+      )
+    );
+
+  // 이미 오늘 재발급된 회원 제외
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const filtered = [];
+  for (const { memberId } of usedCoupons) {
+    const member = await db
+      .select()
+      .from(members)
+      .where(and(eq(members.id, memberId), eq(members.status, "active")))
+      .limit(1);
+
+    if (!member[0]) continue;
+
+    // 오늘 이미 재발급됐는지 확인
+    const alreadyIssued = await db
+      .select()
+      .from(coupons)
+      .where(
+        and(
+          eq(coupons.memberId, memberId),
+          eq(coupons.type, "corkage_free"),
+          eq(coupons.status, "active"),
+          gte(coupons.issuedAt, todayStart)
+        )
+      )
+      .limit(1);
+
+    if (alreadyIssued.length === 0) {
+      filtered.push(member[0]);
+    }
+  }
+
+  return filtered;
+}
