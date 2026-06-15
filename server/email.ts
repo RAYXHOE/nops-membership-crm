@@ -366,45 +366,40 @@ export async function sendAnniversaryEmail(opts: {
 }
 
 // ─── OTP 인증 이메일 ───────────────────────────────────────────────────────────────────
-export async function sendOtpEmail(opts: { to: string; name: string; code: string }) {
-  try {
-    const result = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: opts.to,
-      subject: `[NOPS Steak House] 마이페이지 인증코드: ${opts.code}`,
-      html: `<!DOCTYPE html>
-<html lang="ko">
-<head><meta charset="UTF-8" /></head>
-<body style="margin:0;padding:0;background:#f7f3ee;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f3ee;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#fff;border-radius:16px;overflow:hidden;">
-        <tr><td style="background:#1a1a1a;padding:28px 32px;text-align:center;">
-          <p style="margin:0 0 4px;color:#c9a84c;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;">Verification</p>
-          <h1 style="margin:0;color:#fff;font-size:20px;font-weight:800;">NOPS Steak House</h1>
-        </td></tr>
-        <tr><td style="padding:36px 32px;text-align:center;">
-          <p style="margin:0 0 8px;font-size:15px;color:#333;">${opts.name}님의 마이페이지 인증코드입니다.</p>
-          <div style="background:#faf7f2;border:2px solid #c9a84c;border-radius:12px;padding:24px;margin:20px 0;">
-            <p style="margin:0 0 6px;font-size:12px;color:#8b6914;letter-spacing:0.15em;text-transform:uppercase;">Verification Code</p>
-            <p style="margin:0;font-size:36px;font-weight:900;letter-spacing:0.3em;color:#1a1a1a;font-family:monospace;">${opts.code}</p>
+export async function sendOtpEmail({
+  to,
+  name,
+  code,
+}: {
+  to: string;
+  name: string;
+  code: string;
+}) {
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject: `[NOPS Steak House] 인증코드: ${code}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <div style="background: #1a1a1a; padding: 32px; text-align: center; border-radius: 12px 12px 0 0;">
+          <p style="color: #c9a84c; font-size: 11px; letter-spacing: 0.2em; margin: 0 0 8px;">EXCLUSIVE MEMBERSHIP</p>
+          <h1 style="color: #ffffff; font-size: 22px; margin: 0;">NOPS Steak House</h1>
+        </div>
+        <div style="background: #ffffff; padding: 32px; border-radius: 0 0 12px 12px; border: 1px solid #e5e5e5; border-top: none;">
+          <h2 style="font-size: 18px; margin: 0 0 8px;">${name}님, 인증코드를 확인해주세요</h2>
+          <p style="color: #666; font-size: 14px; margin: 0 0 24px;">아래 6자리 코드를 입력하면 쿠폰을 확인할 수 있습니다.</p>
+          <div style="background: #f5f5f5; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+            <p style="font-size: 36px; font-weight: bold; font-family: monospace; letter-spacing: 0.3em; color: #1a1a1a; margin: 0;">${code}</p>
+            <p style="font-size: 12px; color: #999; margin: 8px 0 0;">10분 이내에 입력해주세요</p>
           </div>
-          <p style="margin:0;font-size:12px;color:#999;">10분 내 입력해 주세요. 본인이 요청하지 않았다면 무시하세요.</p>
-        </td></tr>
-        <tr><td style="background:#f7f3ee;padding:16px 32px;text-align:center;border-top:1px solid #e8dfd0;">
-          <p style="margin:0;font-size:11px;color:#bbb;">NOPS Steak House · 본 메일은 발신 전용입니다.</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`,
-    });
-    console.log(`[Email] OTP sent to ${opts.to}:`, result.data?.id ?? result.error);
-    return { success: !result.error };
-  } catch (err) {
-    console.error(`[Email] Failed to send OTP to ${opts.to}:`, err);
-    return { success: false };
-  }
+          <p style="text-align: center; color: #999; font-size: 11px; margin: 0;">
+            본인이 요청하지 않은 경우 이 메일을 무시하세요.<br>
+            NOPS Steak House
+          </p>
+        </div>
+      </div>
+    `,
+  });
 }
 
 // API 키 유효성 검증용

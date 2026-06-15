@@ -280,6 +280,15 @@ export const appRouter = router({
         return member;
       }),
 
+    // memberId로 회원 정보 조회 (OTP 인증 후 사용)
+    getMemberInfo: publicProcedure
+      .input(z.object({ memberId: z.number() }))
+      .query(async ({ input }) => {
+        const member = await getMemberById(input.memberId);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
+        return member;
+      }),
+
     // 고객 마이페이지: 쿠폰 조회
     getMyCoupons: publicProcedure
       .input(z.object({ memberId: z.number() }))
