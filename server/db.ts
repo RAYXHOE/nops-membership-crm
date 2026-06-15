@@ -618,3 +618,36 @@ export async function getMembersForCorkageReissue() {
 
   return filtered;
 }
+
+// ─── OTP ──────────────────────────────────────────────────────────────────────
+import { otpCodes } from "../drizzle/schema";
+
+export async function createOtp(email: string, code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10분
+  // 기존 미사용 OTP 삭제
+  await db.delete(otpCodes).where(eq(otpCodes.email, email));
+  await db.insert(otpCodes).values({ email, code, expiresAt });
+}
+
+export async function verifyOtp(email: string, code: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db
+    .select()
+    .from(otpCodes)
+    .where(
+      and(
+        eq(otpCodes.email, email),
+        eq(otpCodes.code, code),
+        eq(otpCodes.used, false),
+        gte(otpCodes.expiresAt, new Date())
+      )
+    )
+    .limit(1);
+  if (result.length === 0) return false;
+  // 사용 처리
+  await db.update(otpCodes).set({ used: true }).where(eq(otpCodes.id, result[0].id));
+  return true;
+}

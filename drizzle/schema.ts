@@ -143,3 +143,13 @@ export const consentLogs = mysqlTable("consent_logs", {
 
 export type ConsentLog = typeof consentLogs.$inferSelect;
 export type InsertConsentLog = typeof consentLogs.$inferInsert;
+
+// ─── OTP (마이페이지 인증) ─────────────────────────────────────────────────────
+export const otpCodes = mysqlTable("otp_codes", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  code: varchar("code", { length: 6 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});

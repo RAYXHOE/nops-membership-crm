@@ -33,8 +33,9 @@ import {
   useCoupon,
   expireOverdueCoupons,
 } from "./db";
-import { sendWelcomeEmail } from "./email";
+import { sendWelcomeEmail, sendOtpEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
+import { createOtp, verifyOtp as verifyOtpDb } from "./db";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -284,6 +285,33 @@ export const appRouter = router({
       .input(z.object({ memberId: z.number() }))
       .query(async ({ input }) => {
         return getCouponsByMemberId(input.memberId);
+      }),
+
+    // OTP 발송
+    sendOtp: publicProcedure
+      .input(z.object({ email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        const member = await getMemberByEmail(input.email);
+        if (!member) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "가입되지 않은 이메일입니다." });
+        }
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        await createOtp(input.email, code);
+        await sendOtpEmail({ to: input.email, name: member.name ?? "회원", code });
+        return { success: true };
+      }),
+
+    // OTP 검증
+    verifyOtp: publicProcedure
+      .input(z.object({ email: z.string().email(), code: z.string().length(6) }))
+      .mutation(async ({ input }) => {
+        const valid = await verifyOtpDb(input.email, input.code);
+        if (!valid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "인증코드가 올바르지 않거나 만료되었습니다." });
+        }
+        const member = await getMemberByEmail(input.email);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND" });
+        return { success: true, memberId: member.id };
       }),
 
     // 결혼기념일 업데이트
