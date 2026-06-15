@@ -127,25 +127,18 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
   const utils = trpc.useUtils();
 
-  // admin 전용 페이지 - 직접 URL 접근 차단
-  if (user && user.role !== "admin") {
-    return (
-      <AdminLayout>
-        <div className="p-8 text-center">
-          <ShieldCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-lg font-semibold text-foreground mb-2">접근 권한이 없습니다</p>
-          <p className="text-sm text-muted-foreground">슈퍼 어드민만 이 페이지에 접근할 수 있습니다.</p>
-        </div>
-      </AdminLayout>
-    );
-  }
+  const isAdmin = user?.role === "admin";
 
-  const query = trpc.admin.listUsers.useQuery({
-    search: search || undefined,
-    role: roleFilter === "all" ? undefined : roleFilter,
-    limit: 50,
-    offset: 0,
-  });
+  // ─── 모든 Hook은 조기 return 이전에 위치 (React Hook 규칙) ───────────────────
+  const query = trpc.admin.listUsers.useQuery(
+    {
+      search: search || undefined,
+      role: roleFilter === "all" ? undefined : roleFilter,
+      limit: 50,
+      offset: 0,
+    },
+    { enabled: isAdmin }
+  );
 
   const updateRoleMutation = trpc.admin.updateUserRole.useMutation({
     onSuccess: () => {
@@ -162,6 +155,19 @@ export default function AdminUsers() {
 
   const users = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
+
+  // ─── 조기 return (Hook 이후에 위치) ─────────────────────────────────────────
+  if (user && !isAdmin) {
+    return (
+      <AdminLayout>
+        <div className="p-8 text-center">
+          <ShieldCheck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-lg font-semibold text-foreground mb-2">접근 권한이 없습니다</p>
+          <p className="text-sm text-muted-foreground">슈퍼 어드민만 이 페이지에 접근할 수 있습니다.</p>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
