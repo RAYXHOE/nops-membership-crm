@@ -225,8 +225,59 @@ export default function AdminUsers() {
           </form>
         </div>
 
-        {/* Table */}
-        <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
+        {/* 모바일 카드 리스트 (md 미만) */}
+        <div className="md:hidden space-y-3 mb-4">
+          {query.isLoading ? (
+            <div className="bg-card rounded-2xl border border-border/50 p-6 text-center text-muted-foreground text-sm">로딩 중...</div>
+          ) : users.length === 0 ? (
+            <div className="bg-card rounded-2xl border border-border/50 p-6 text-center text-muted-foreground text-sm">사용자가 없습니다</div>
+          ) : (
+            users.map((u) => {
+              const cfg = roleConfig[u.role as Role] ?? roleConfig.user;
+              const RoleIcon = cfg.icon;
+              return (
+                <div key={u.id} className="bg-card rounded-2xl border border-border/50 p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-primary text-sm font-semibold">{(u.name ?? u.email ?? "?").charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{u.name ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{u.email ?? u.openId}</p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold border shrink-0 ${cfg.color}`}>
+                      <RoleIcon className="w-3 h-3" />{cfg.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <BranchCodeEditor
+                      userId={u.id}
+                      currentCode={(u as typeof u & { branchCode?: string | null }).branchCode ?? null}
+                      currentRole={u.role as Role}
+                      onSave={() => utils.admin.listUsers.invalidate()}
+                    />
+                    <Select
+                      value={u.role}
+                      onValueChange={(newRole) => updateRoleMutation.mutate({ userId: u.id, role: newRole as Role, branchCode: (u as typeof u & { branchCode?: string | null }).branchCode })}
+                      disabled={updateRoleMutation.isPending}
+                    >
+                      <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">슈퍼 어드민</SelectItem>
+                        <SelectItem value="staff">본사 스태프</SelectItem>
+                        <SelectItem value="branch_admin">지점 관리자</SelectItem>
+                        <SelectItem value="user">일반 사용자</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* 데스크톱 테이블 (md 이상) */}
+        <div className="hidden md:block bg-card rounded-2xl border border-border/50 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

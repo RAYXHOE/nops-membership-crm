@@ -125,14 +125,63 @@ export default function AdminCoupons() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
+        {/* 모바일 카드 리스트 (md 미만) */}
+        <div className="md:hidden space-y-3 mb-4">
+          {query.isLoading ? (
+            <div className="bg-card rounded-2xl border border-border/50 p-6 text-center text-muted-foreground text-sm">로딩 중...</div>
+          ) : items.length === 0 ? (
+            <div className="bg-card rounded-2xl border border-border/50 p-6 text-center text-muted-foreground text-sm">쿠폰이 없습니다</div>
+          ) : (
+            items.map(({ coupon, memberName }) => (
+              <div key={coupon.id} className="bg-card rounded-2xl border border-border/50 p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{coupon.name}</p>
+                    <p className="text-xs text-muted-foreground">{memberName ?? "—"}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                    coupon.status === "active" ? "bg-green-100 text-green-700" :
+                    coupon.status === "used" ? "bg-muted text-muted-foreground" : "bg-red-100 text-red-600"
+                  }`}>
+                    {coupon.status === "active" ? "사용가능" : coupon.status === "used" ? "사용완료" : "만료"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <code className="text-xs font-mono bg-muted px-2 py-1 rounded block">{coupon.code}</code>
+                    <p className="text-xs text-muted-foreground">유효: {new Date(coupon.expiresAt).toLocaleDateString("ko-KR")}까지</p>
+                    {coupon.discountPercent && <p className="text-xs font-bold text-primary">{coupon.discountPercent}% 할인</p>}
+                  </div>
+                  {coupon.status === "active" && (
+                    <Button size="sm" variant="outline" className="text-xs h-8 gap-1 shrink-0"
+                      onClick={() => useCouponMutation.mutate({ couponId: coupon.id })}
+                      disabled={useCouponMutation.isPending}>
+                      <CheckCircle2 className="w-3 h-3" />사용처리
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+          {total > limit && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground">{page * limit + 1}–{Math.min((page + 1) * limit, total)} / {total}건</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>이전</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={(page + 1) * limit >= total}>다음</Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 데스크톱 테이블 (md 이상) */}
+        <div className="hidden md:block bg-card rounded-2xl border border-border/50 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/50 bg-muted/30">
                   <th className="text-left px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">쿠폰</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">회원</th>
+                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">회원</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">코드</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">유효기간</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">상태</th>
@@ -141,62 +190,38 @@ export default function AdminCoupons() {
               </thead>
               <tbody className="divide-y divide-border/30">
                 {query.isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-12 text-muted-foreground text-sm">로딩 중...</td>
-                  </tr>
+                  <tr><td colSpan={6} className="text-center py-12 text-muted-foreground text-sm">로딩 중...</td></tr>
                 ) : items.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-12 text-muted-foreground text-sm">쿠폰이 없습니다</td>
-                  </tr>
+                  <tr><td colSpan={6} className="text-center py-12 text-muted-foreground text-sm">쿠폰이 없습니다</td></tr>
                 ) : (
                   items.map(({ coupon, memberName, memberEmail }) => (
                     <tr key={coupon.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-6 py-4">
                         <p className="text-sm font-medium text-foreground">{coupon.name}</p>
                         <p className="text-xs text-muted-foreground">{typeLabel(coupon.type)}</p>
-                        {coupon.discountPercent && (
-                          <p className="text-xs font-bold text-primary">{coupon.discountPercent}% 할인</p>
-                        )}
+                        {coupon.discountPercent && <p className="text-xs font-bold text-primary">{coupon.discountPercent}% 할인</p>}
                       </td>
-                      <td className="px-4 py-4 hidden md:table-cell">
+                      <td className="px-4 py-4">
                         <p className="text-sm text-foreground">{memberName ?? "—"}</p>
                         <p className="text-xs text-muted-foreground">{memberEmail ?? ""}</p>
                       </td>
+                      <td className="px-4 py-4"><code className="text-xs font-mono bg-muted px-2 py-1 rounded">{coupon.code}</code></td>
+                      <td className="px-4 py-4 text-xs text-muted-foreground hidden lg:table-cell">{new Date(coupon.expiresAt).toLocaleDateString("ko-KR")}</td>
                       <td className="px-4 py-4">
-                        <code className="text-xs font-mono bg-muted px-2 py-1 rounded">{coupon.code}</code>
-                      </td>
-                      <td className="px-4 py-4 text-xs text-muted-foreground hidden lg:table-cell">
-                        {new Date(coupon.expiresAt).toLocaleDateString("ko-KR")}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            coupon.status === "active"
-                              ? "bg-green-100 text-green-700"
-                              : coupon.status === "used"
-                              ? "bg-muted text-muted-foreground"
-                              : "bg-red-100 text-red-600"
-                          }`}
-                        >
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          coupon.status === "active" ? "bg-green-100 text-green-700" :
+                          coupon.status === "used" ? "bg-muted text-muted-foreground" : "bg-red-100 text-red-600"
+                        }`}>
                           {coupon.status === "active" ? "사용가능" : coupon.status === "used" ? "사용완료" : "만료"}
                         </span>
-                        {coupon.usedAt && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {new Date(coupon.usedAt).toLocaleDateString("ko-KR")}
-                          </p>
-                        )}
+                        {coupon.usedAt && <p className="text-xs text-muted-foreground mt-0.5">{new Date(coupon.usedAt).toLocaleDateString("ko-KR")}</p>}
                       </td>
                       <td className="px-4 py-4">
                         {coupon.status === "active" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 gap-1"
+                          <Button size="sm" variant="outline" className="text-xs h-7 gap-1"
                             onClick={() => useCouponMutation.mutate({ couponId: coupon.id })}
-                            disabled={useCouponMutation.isPending}
-                          >
-                            <CheckCircle2 className="w-3 h-3" />
-                            사용처리
+                            disabled={useCouponMutation.isPending}>
+                            <CheckCircle2 className="w-3 h-3" />사용처리
                           </Button>
                         )}
                       </td>
@@ -206,12 +231,9 @@ export default function AdminCoupons() {
               </tbody>
             </table>
           </div>
-
           {total > limit && (
             <div className="border-t border-border/50 px-6 py-4 flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                {page * limit + 1}–{Math.min((page + 1) * limit, total)} / {total}건
-              </p>
+              <p className="text-xs text-muted-foreground">{page * limit + 1}–{Math.min((page + 1) * limit, total)} / {total}건</p>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>이전</Button>
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={(page + 1) * limit >= total}>다음</Button>

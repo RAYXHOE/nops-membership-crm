@@ -86,16 +86,52 @@ export default function AdminMembers() {
           </form>
         </div>
 
-        {/* Table */}
-        <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
+        {/* 모바일 카드 리스트 (md 미만) */}
+        <div className="md:hidden space-y-3 mb-4">
+          {query.isLoading ? (
+            <div className="bg-card rounded-2xl border border-border/50 p-6 text-center text-muted-foreground text-sm">로딩 중...</div>
+          ) : members.length === 0 ? (
+            <div className="bg-card rounded-2xl border border-border/50 p-6 text-center text-muted-foreground text-sm">회원이 없습니다</div>
+          ) : (
+            members.map((m) => (
+              <Link key={m.id} href={`/admin/members/${m.id}`}>
+                <div className="bg-card rounded-2xl border border-border/50 p-4 hover:border-primary/30 transition-colors cursor-pointer">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <span className="text-primary text-sm font-semibold">{m.name.charAt(0)}</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{m.name}</p>
+                        <p className="text-xs text-muted-foreground">{m.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={m.status} />
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-muted-foreground">전화</span> <span className="text-foreground ml-1">{m.phone}</span></div>
+                    <div><span className="text-muted-foreground">마케팅</span> <span className={`ml-1 ${m.marketingConsent ? "text-green-600" : "text-muted-foreground"}`}>{m.marketingConsent ? "동의" : "미동의"}</span></div>
+                    <div><span className="text-muted-foreground">가입일</span> <span className="text-foreground ml-1">{new Date(m.joinedAt).toLocaleDateString("ko-KR")}</span></div>
+                  </div>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+
+        {/* 데스크톱 테이블 (md 이상) */}
+        <div className="hidden md:block bg-card rounded-2xl border border-border/50 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/50 bg-muted/30">
                   <th className="text-left px-6 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">회원</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">전화번호</th>
+                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">전화번호</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">생년월일</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">마케팅</th>
+                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">마케팅</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">상태</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">가입일</th>
                   <th className="px-4 py-4" />
@@ -103,17 +139,9 @@ export default function AdminMembers() {
               </thead>
               <tbody className="divide-y divide-border/30">
                 {query.isLoading ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
-                      로딩 중...
-                    </td>
-                  </tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">로딩 중...</td></tr>
                 ) : members.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">
-                      회원이 없습니다
-                    </td>
-                  </tr>
+                  <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">회원이 없습니다</td></tr>
                 ) : (
                   members.map((m) => (
                     <tr key={m.id} className="hover:bg-muted/20 transition-colors">
@@ -128,26 +156,14 @@ export default function AdminMembers() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-sm text-muted-foreground hidden md:table-cell">{m.phone}</td>
-                      <td className="px-4 py-4 text-sm text-muted-foreground hidden lg:table-cell">
-                        {new Date(m.birthDate).toLocaleDateString("ko-KR")}
-                      </td>
-                      <td className="px-4 py-4 hidden md:table-cell">
-                        <span className={`text-xs ${m.marketingConsent ? "text-green-600" : "text-muted-foreground"}`}>
-                          {m.marketingConsent ? "동의" : "미동의"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <StatusBadge status={m.status} />
-                      </td>
-                      <td className="px-4 py-4 text-xs text-muted-foreground hidden lg:table-cell">
-                        {new Date(m.joinedAt).toLocaleDateString("ko-KR")}
-                      </td>
+                      <td className="px-4 py-4 text-sm text-muted-foreground">{m.phone}</td>
+                      <td className="px-4 py-4 text-sm text-muted-foreground hidden lg:table-cell">{new Date(m.birthDate).toLocaleDateString("ko-KR")}</td>
+                      <td className="px-4 py-4"><span className={`text-xs ${m.marketingConsent ? "text-green-600" : "text-muted-foreground"}`}>{m.marketingConsent ? "동의" : "미동의"}</span></td>
+                      <td className="px-4 py-4"><StatusBadge status={m.status} /></td>
+                      <td className="px-4 py-4 text-xs text-muted-foreground hidden lg:table-cell">{new Date(m.joinedAt).toLocaleDateString("ko-KR")}</td>
                       <td className="px-4 py-4">
                         <Link href={`/admin/members/${m.id}`}>
-                          <button className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                          </button>
+                          <button className="p-1.5 rounded-lg hover:bg-muted transition-colors"><ChevronRight className="w-4 h-4 text-muted-foreground" /></button>
                         </Link>
                       </td>
                     </tr>
