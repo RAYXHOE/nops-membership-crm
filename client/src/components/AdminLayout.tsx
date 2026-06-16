@@ -2,11 +2,11 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   BarChart3, ChevronRight, Crown, LogOut, Tag,
-  Users, LayoutDashboard, UserCog, ShieldOff,
+  Users, LayoutDashboard, UserCog, ShieldOff, Menu, X,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "대시보드", roles: ["admin", "staff", "branch_admin"] },
@@ -21,6 +21,7 @@ const ALLOWED_ROLES = ["admin", "staff", "branch_admin"];
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAuthenticated } = useAuth();
   const [location, navigate] = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => navigate("/"),
@@ -31,6 +32,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       window.location.href = getLoginUrl();
     }
   }, [loading, isAuthenticated]);
+
+  // 페이지 이동 시 사이드바 닫기
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location]);
 
   if (loading) {
     return (
@@ -45,7 +51,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAuthenticated) return null;
 
-  // role이 user이거나 없으면 권한 없음 화면
   if (!ALLOWED_ROLES.includes(user?.role ?? "")) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -73,64 +78,109 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // 역할별 접근 가능한 메뉴만 표시
   const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role ?? ""));
+
+  const SidebarContent = () => (
+    <>
+      <div className="px-6 py-6 border-b border-sidebar-border">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full coupon-gold-shimmer flex items-center justify-center">
+            <Crown className="w-4 h-4 text-sidebar" />
+          </div>
+          <div>
+            <p className="text-sidebar-foreground font-bold tracking-wider text-sm uppercase">NOPS</p>
+            <p className="text-sidebar-foreground/50 text-xs">Steak House CRM</p>
+          </div>
+        </div>
+      </div>
+
+      <nav className="flex-1 px-3 py-6 space-y-1">
+        {visibleNavItems.map((item) => {
+          const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
+          return (
+            <Link key={item.href} href={item.href}>
+              <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-primary"
+                  : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              }`}>
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span className="text-sm font-medium">{item.label}</span>
+                {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
+              </div>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="px-3 py-4 border-t border-sidebar-border">
+        <div className="flex items-center gap-3 px-3 py-2 mb-1">
+          <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
+            <span className="text-sidebar-primary text-xs font-semibold">{user?.name?.charAt(0) ?? "A"}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sidebar-foreground text-sm font-medium truncate">{user?.name ?? "관리자"}</p>
+            <p className="text-sidebar-foreground/40 text-xs truncate">{user?.email ?? ""}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => logoutMutation.mutate()}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-200 text-sm"
+        >
+          <LogOut className="w-4 h-4" />
+          로그아웃
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <div className="min-h-screen flex bg-background">
-      <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col shrink-0">
-        <div className="px-6 py-8 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full coupon-gold-shimmer flex items-center justify-center">
-              <Crown className="w-4 h-4 text-sidebar" />
-            </div>
-            <div>
-              <p className="text-sidebar-foreground font-bold tracking-wider text-sm uppercase">NOPS</p>
-              <p className="text-sidebar-foreground/50 text-xs">Steak House CRM</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 px-3 py-6 space-y-1">
-          {visibleNavItems.map((item) => {
-            const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
-            return (
-              <Link key={item.href} href={item.href}>
-                <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group ${
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                }`}>
-                  <item.icon className="w-4 h-4 shrink-0" />
-                  <span className="text-sm font-medium">{item.label}</span>
-                  {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
-                </div>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="px-3 py-4 border-t border-sidebar-border">
-          <div className="flex items-center gap-3 px-3 py-2 mb-1">
-            <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-              <span className="text-sidebar-primary text-xs font-semibold">{user?.name?.charAt(0) ?? "A"}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sidebar-foreground text-sm font-medium truncate">{user?.name ?? "관리자"}</p>
-              <p className="text-sidebar-foreground/40 text-xs truncate">{user?.email ?? ""}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => logoutMutation.mutate()}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-200 text-sm"
-          >
-            <LogOut className="w-4 h-4" />
-            로그아웃
-          </button>
-        </div>
+      {/* 데스크탑 사이드바 (lg 이상) */}
+      <aside className="hidden lg:flex w-64 bg-sidebar text-sidebar-foreground flex-col shrink-0">
+        <SidebarContent />
       </aside>
 
-      <main className="flex-1 overflow-auto">{children}</main>
+      {/* 모바일 오버레이 */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* 모바일 사이드바 드로어 */}
+      <aside className={`fixed top-0 left-0 h-full w-64 bg-sidebar text-sidebar-foreground flex flex-col z-50 transform transition-transform duration-300 lg:hidden ${
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      }`}>
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+        <SidebarContent />
+      </aside>
+
+      {/* 메인 콘텐츠 */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* 모바일 상단 헤더 */}
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border sticky top-0 z-30">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1.5 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <Crown className="w-4 h-4 text-primary" />
+            <span className="text-sidebar-foreground font-bold tracking-wider text-sm uppercase">NOPS</span>
+            <span className="text-sidebar-foreground/50 text-xs">CRM</span>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto">{children}</main>
+      </div>
     </div>
   );
 }
