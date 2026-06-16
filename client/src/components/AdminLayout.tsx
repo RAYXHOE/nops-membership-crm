@@ -2,11 +2,20 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   BarChart3, ChevronRight, Crown, LogOut, Tag,
-  Users, LayoutDashboard, UserCog, ShieldOff, Menu, X,
+  Users, LayoutDashboard, UserCog, ShieldOff, Menu, X, AlertTriangle,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useState } from "react";
+
+// 앱 내 WebView 여부 감지
+function isWebView(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /KAKAOTALK|Instagram|NAVER|Line|FB_IAB|FB4A|FBAN|Twitter|Snapchat|WeChat|MicroMessenger|LinkedInApp|Bytedance|TikTok/i.test(ua)
+    || /wv|WebView/.test(ua)
+    || (!!ua.match(/Android/) && !ua.match(/Chrome\/[.0-9]* Mobile/));
+}
 
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "대시보드", roles: ["admin", "staff", "branch_admin"] },
@@ -40,7 +49,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        {isWebView() && (
+          <div className="fixed top-0 left-0 right-0 bg-amber-50 border-b border-amber-200 px-4 py-3 z-50">
+            <div className="flex items-start gap-2 max-w-sm mx-auto">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-amber-800">외부 브라우저로 열어주세요</p>
+                <p className="text-xs text-amber-700 mt-0.5">카카오톡 등 앱에서 열린 경우 구글 로그인이 차단됩니다.<br />우측 하단 ⋯ → <strong>기본 브라우저에서 열기</strong>를 선택해 주세요.</p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col items-center gap-4">
           <Crown className="w-10 h-10 text-primary animate-pulse" />
           <p className="text-muted-foreground text-sm tracking-widest uppercase">Loading</p>
