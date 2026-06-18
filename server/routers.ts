@@ -759,6 +759,124 @@ export const appRouter = router({
       return { memberStats, couponStats, purchaseStats };
     }),
 
+    // 기간별 가입자 통계
+    getMembersByPeriod: staffProcedure
+      .input(z.object({
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        groupBy: z.enum(["day", "month"]).default("day"),
+      }))
+      .query(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) return [];
+        const { members } = await import("../drizzle/schema");
+        const { and, gte, lte, sql } = await import("drizzle-orm");
+        const start = new Date(input.startDate + "T00:00:00");
+        const end = new Date(input.endDate + "T23:59:59");
+        const fmt = input.groupBy === "month" ? "%Y-%m" : "%Y-%m-%d";
+        const result = await db
+          .select({
+            period: sql<string>`DATE_FORMAT(joinedAt, ${fmt})`,
+            count: sql<number>`COUNT(*)`,
+          })
+          .from(members)
+          .where(and(gte(members.joinedAt, start), lte(members.joinedAt, end)))
+          .groupBy(sql`DATE_FORMAT(joinedAt, ${fmt})`)
+          .orderBy(sql`DATE_FORMAT(joinedAt, ${fmt})`);
+        return result;
+      }),
+
+    // 기간별 쿠폰 사용 통계
+    getCouponUsageByPeriod: staffProcedure
+      .input(z.object({
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        groupBy: z.enum(["day", "month"]).default("day"),
+      }))
+      .query(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) return [];
+        const { coupons } = await import("../drizzle/schema");
+        const { and, gte, lte, eq, sql } = await import("drizzle-orm");
+        const start = new Date(input.startDate + "T00:00:00");
+        const end = new Date(input.endDate + "T23:59:59");
+        const fmt = input.groupBy === "month" ? "%Y-%m" : "%Y-%m-%d";
+        const result = await db
+          .select({
+            period: sql<string>`DATE_FORMAT(usedAt, ${fmt})`,
+            count: sql<number>`COUNT(*)`,
+            type: coupons.type,
+          })
+          .from(coupons)
+          .where(and(eq(coupons.status, "used"), gte(coupons.usedAt, start), lte(coupons.usedAt, end)))
+          .groupBy(sql`DATE_FORMAT(usedAt, ${fmt})`, coupons.type)
+          .orderBy(sql`DATE_FORMAT(usedAt, ${fmt})`);
+        return result;
+      }),
+
+    // Raw data 다운로드 - 가입자
+    exportMembers: staffProcedure
+      .input(z.object({
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      }))
+      .query(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) return [];
+        const { members } = await import("../drizzle/schema");
+        const { and, gte, lte } = await import("drizzle-orm");
+        const conditions = [];
+        if (input.startDate) conditions.push(gte(members.joinedAt, new Date(input.startDate + "T00:00:00")));
+        if (input.endDate) conditions.push(lte(members.joinedAt, new Date(input.endDate + "T23:59:59")));
+        return db
+          .select({
+            id: members.id,
+            name: members.name,
+            email: members.email,
+            phone: members.phone,
+            birthDate: members.birthDate,
+            marketingConsent: members.marketingConsent,
+            status: members.status,
+            joinedAt: members.joinedAt,
+          })
+          .from(members)
+          .where(conditions.length > 0 ? and(...conditions) : undefined)
+          .orderBy(members.joinedAt);
+      }),
+
+    // Raw data 다운로드 - 쿠폰 사용
+    exportCouponUsage: staffProcedure
+      .input(z.object({
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      }))
+      .query(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) return [];
+        const { coupons, members } = await import("../drizzle/schema");
+        const { and, gte, lte, eq } = await import("drizzle-orm");
+        const conditions = [eq(coupons.status, "used")];
+        if (input.startDate) conditions.push(gte(coupons.usedAt, new Date(input.startDate + "T00:00:00")));
+        if (input.endDate) conditions.push(lte(coupons.usedAt, new Date(input.endDate + "T23:59:59")));
+        return db
+          .select({
+            couponId: coupons.id,
+            couponCode: coupons.code,
+            couponName: coupons.name,
+            couponType: coupons.type,
+            discountPercent: coupons.discountPercent,
+            memberName: members.name,
+            memberEmail: members.email,
+            memberPhone: members.phone,
+            usedAt: coupons.usedAt,
+            usedBranchCode: coupons.usedBranchCode,
+          })
+          .from(coupons)
+          .leftJoin(members, eq(coupons.memberId, members.id))
+          .where(and(...conditions))
+          .orderBy(coupons.usedAt);
+      }),
+
     // 생일 쿠폰 수동 발급 (스케줄러 대용)
     issueBirthdayCoupons: branchAdminProcedure.mutation(async () => {
       const birthdayMembers = await getMembersWithBirthdayToday();
