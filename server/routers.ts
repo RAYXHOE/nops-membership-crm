@@ -759,6 +759,20 @@ export const appRouter = router({
       return { memberStats, couponStats, purchaseStats };
     }),
 
+    // 지점 코드 목록 조회
+    listBranchCodes: staffProcedure.query(async () => {
+      const db = await (await import("./db")).getDb();
+      if (!db) return [];
+      const { coupons } = await import("../drizzle/schema");
+      const { isNotNull, sql } = await import("drizzle-orm");
+      const result = await db
+        .selectDistinct({ branchCode: coupons.usedBranchCode })
+        .from(coupons)
+        .where(isNotNull(coupons.usedBranchCode))
+        .orderBy(coupons.usedBranchCode);
+      return result.map((r) => r.branchCode!).filter(Boolean);
+    }),
+
     // 기간별 가입자 통계
     getMembersByPeriod: staffProcedure
       .input(z.object({
@@ -786,12 +800,13 @@ export const appRouter = router({
         return result;
       }),
 
-    // 기간별 쿠폰 사용 통계
+    // 기간별 쿠폰 사용 통계 (지점 필터 포함)
     getCouponUsageByPeriod: staffProcedure
       .input(z.object({
         startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         groupBy: z.enum(["day", "month"]).default("day"),
+        branchCode: z.string().optional(),
       }))
       .query(async ({ input }) => {
         const db = await (await import("./db")).getDb();
@@ -801,6 +816,12 @@ export const appRouter = router({
         const start = new Date(input.startDate + "T00:00:00");
         const end = new Date(input.endDate + "T23:59:59");
         const fmt = input.groupBy === "month" ? "%Y-%m" : "%Y-%m-%d";
+        const conditions: ReturnType<typeof eq>[] = [
+          eq(coupons.status, "used") as ReturnType<typeof eq>,
+          gte(coupons.usedAt, start) as unknown as ReturnType<typeof eq>,
+          lte(coupons.usedAt, end) as unknown as ReturnType<typeof eq>,
+        ];
+        if (input.branchCode) conditions.push(eq(coupons.usedBranchCode, input.branchCode) as ReturnType<typeof eq>);
         const result = await db
           .select({
             period: sql<string>`DATE_FORMAT(usedAt, ${fmt})`,
@@ -808,7 +829,7 @@ export const appRouter = router({
             type: coupons.type,
           })
           .from(coupons)
-          .where(and(eq(coupons.status, "used"), gte(coupons.usedAt, start), lte(coupons.usedAt, end)))
+          .where(and(...conditions))
           .groupBy(sql`DATE_FORMAT(usedAt, ${fmt})`, coupons.type)
           .orderBy(sql`DATE_FORMAT(usedAt, ${fmt})`);
         return result;
@@ -844,20 +865,22 @@ export const appRouter = router({
           .orderBy(members.joinedAt);
       }),
 
-    // Raw data 다운로드 - 쿠폰 사용
+    // Raw data 다운로드 - 쿠폰 사용 (지점 필터 포함)
     exportCouponUsage: staffProcedure
       .input(z.object({
         startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        branchCode: z.string().optional(),
       }))
       .query(async ({ input }) => {
         const db = await (await import("./db")).getDb();
         if (!db) return [];
         const { coupons, members } = await import("../drizzle/schema");
         const { and, gte, lte, eq } = await import("drizzle-orm");
-        const conditions = [eq(coupons.status, "used")];
-        if (input.startDate) conditions.push(gte(coupons.usedAt, new Date(input.startDate + "T00:00:00")));
-        if (input.endDate) conditions.push(lte(coupons.usedAt, new Date(input.endDate + "T23:59:59")));
+        const conditions: ReturnType<typeof eq>[] = [eq(coupons.status, "used") as ReturnType<typeof eq>];
+        if (input.startDate) conditions.push(gte(coupons.usedAt, new Date(input.startDate + "T00:00:00")) as unknown as ReturnType<typeof eq>);
+        if (input.endDate) conditions.push(lte(coupons.usedAt, new Date(input.endDate + "T23:59:59")) as unknown as ReturnType<typeof eq>);
+        if (input.branchCode) conditions.push(eq(coupons.usedBranchCode, input.branchCode) as ReturnType<typeof eq>);
         return db
           .select({
             couponId: coupons.id,

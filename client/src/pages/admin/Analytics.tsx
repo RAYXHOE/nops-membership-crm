@@ -60,6 +60,7 @@ export default function AdminAnalytics() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [groupBy, setGroupBy] = useState<"day" | "month">("day");
+  const [branchCode, setBranchCode] = useState<string>("all");
 
   const { start, end } = useMemo(() => {
     if (preset === "custom" && customStart && customEnd) return { start: customStart, end: customEnd };
@@ -67,10 +68,14 @@ export default function AdminAnalytics() {
   }, [preset, customStart, customEnd]);
 
   const isValidRange = !!start && !!end && start <= end;
+  const selectedBranch = branchCode === "all" ? undefined : branchCode;
 
-  // ─── 쿼리 ─────────────────────────────────────────────────────────────────
+  // ─── 쿼리 ───────────────────────────────────────────────────────────────────────────────
   const query = trpc.admin.getAnalytics.useQuery();
   const { memberStats: ms, couponStats: cs, purchaseStats: ps } = query.data ?? {};
+
+  const branchCodesQuery = trpc.admin.listBranchCodes.useQuery();
+  const branchCodes = branchCodesQuery.data ?? [];
 
   const membersPeriodQuery = trpc.admin.getMembersByPeriod.useQuery(
     { startDate: start, endDate: end, groupBy },
@@ -78,7 +83,7 @@ export default function AdminAnalytics() {
   );
 
   const couponUsagePeriodQuery = trpc.admin.getCouponUsageByPeriod.useQuery(
-    { startDate: start, endDate: end, groupBy },
+    { startDate: start, endDate: end, groupBy, branchCode: selectedBranch },
     { enabled: isValidRange }
   );
 
@@ -88,7 +93,7 @@ export default function AdminAnalytics() {
   );
 
   const exportCouponQuery = trpc.admin.exportCouponUsage.useQuery(
-    { startDate: start || undefined, endDate: end || undefined },
+    { startDate: start || undefined, endDate: end || undefined, branchCode: selectedBranch },
     { enabled: false }
   );
 
@@ -227,7 +232,25 @@ export default function AdminAnalytics() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">지점</Label>
+              <Select value={branchCode} onValueChange={setBranchCode}>
+                <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 지점</SelectItem>
+                  {branchCodes.map((code) => (
+                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          {branchCode !== "all" && (
+            <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-primary/5 rounded-lg border border-primary/20">
+              <div className="w-2 h-2 rounded-full bg-primary" />
+              <p className="text-xs text-primary font-medium">지점 필터 적용: <strong>{branchCode}</strong> — 쿠폰 사용 차트와 다운로드에 지점 필터가 적용됩니다.</p>
+            </div>
+          )}
 
           {/* 기간 내 요약 */}
           {isValidRange && (
