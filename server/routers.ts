@@ -603,7 +603,9 @@ export const appRouter = router({
 
         if (!couponId) throw new TRPCError({ code: "BAD_REQUEST", message: "쿠폰 ID 또는 코드가 필요합니다." });
 
-        await useCoupon(couponId, ctx.user.id, input.note);
+        // 로그인 직원의 branchCode 자동 기록
+        const staffBranchCode = (ctx.user as typeof ctx.user & { branchCode?: string | null }).branchCode ?? null;
+        await useCoupon(couponId, ctx.user.id, input.note, staffBranchCode);
         return { success: true };
       }),
 

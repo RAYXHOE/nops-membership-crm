@@ -495,6 +495,16 @@ export default function AdminMemberDetail() {
                           <p className="text-xs text-muted-foreground">
                             {new Date(coupon.expiresAt).toLocaleDateString("ko-KR")}까지
                           </p>
+                          {coupon.status === "used" && coupon.usedAt && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              사용: {new Date(coupon.usedAt).toLocaleDateString("ko-KR")}
+                              {(coupon as typeof coupon & { usedBranchCode?: string | null }).usedBranchCode && (
+                                <span className="ml-1.5 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-medium">
+                                  {(coupon as typeof coupon & { usedBranchCode?: string | null }).usedBranchCode}
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

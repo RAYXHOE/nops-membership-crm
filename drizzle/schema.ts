@@ -87,6 +87,7 @@ export const coupons = mysqlTable("coupons", {
   expiresAt: timestamp("expiresAt").notNull(),
   usedAt: timestamp("usedAt"),
   usedByStaffId: int("usedByStaffId"), // 사용 처리한 운영자 user.id
+  usedBranchCode: varchar("usedBranchCode", { length: 20 }), // 사용 지점 코드
   usedNote: text("usedNote"),
   // 생일/결혼기념일 쿠폰의 경우 해당 연도 기록
   birthdayYear: int("birthdayYear"),

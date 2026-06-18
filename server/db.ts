@@ -188,13 +188,20 @@ export async function getCouponByCode(code: string) {
 export async function useCoupon(
   couponId: number,
   staffId: number,
-  note?: string
+  note?: string,
+  branchCode?: string | null
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(coupons)
-    .set({ status: "used", usedAt: new Date(), usedByStaffId: staffId, usedNote: note ?? null })
+    .set({
+      status: "used",
+      usedAt: new Date(),
+      usedByStaffId: staffId,
+      usedNote: note ?? null,
+      usedBranchCode: branchCode ?? null,
+    })
     .where(and(eq(coupons.id, couponId), eq(coupons.status, "active")));
 }
 
