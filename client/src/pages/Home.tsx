@@ -1,5 +1,6 @@
 import { Link } from "wouter";
-import { Crown, Gift, Star, ChevronRight, Sparkles, Settings } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Crown, Gift, Star, ChevronRight, Sparkles, Settings, X, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
 
@@ -24,12 +25,61 @@ const benefits = [
   },
 ];
 
+const NOTICE_KEY = "nops_notice_dismissed_v1";
+
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
   const isAdmin = isAuthenticated && user?.role === "admin";
+  const [showNotice, setShowNotice] = useState(false);
+
+  useEffect(() => {
+    const dismissed = sessionStorage.getItem(NOTICE_KEY);
+    if (!dismissed) setShowNotice(true);
+  }, []);
+
+  const handleDismiss = () => {
+    sessionStorage.setItem(NOTICE_KEY, "1");
+    setShowNotice(false);
+  };
 
   return (
     <div className="min-h-screen bg-background">
+      {/* 테스트 안내 팝업 */}
+      {showNotice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-card rounded-2xl border border-border shadow-2xl max-w-sm w-full p-6 relative animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={handleDismiss}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                <Bell className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xs text-amber-600 font-semibold tracking-wider uppercase">Notice</p>
+                <p className="text-sm font-bold text-foreground">NOPS 멤버십 안내</p>
+              </div>
+            </div>
+            <div className="space-y-3 mb-5">
+              <p className="text-sm text-foreground leading-relaxed">
+                현재 <strong>NOPS 멤버십 프로그램을 내부 테스트 중</strong>입니다.
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                가입 및 쿠폰 발급은 정상적으로 진행되지만, 쿠폰 사용을 통한 할인 적용은 <strong>2025년 7월 정식 오픈 이후</strong>부터 가능합니다.
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <p className="text-xs text-amber-700 font-medium">미리 가입하시면 정식 오픈 시 쿠폰이 자동 적용됩니다. 가입 후 마이페이지에서 쿠폰을 확인하실 수 있습니다.</p>
+              </div>
+            </div>
+            <Button onClick={handleDismiss} className="w-full h-10 text-sm">
+              확인했습니다
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container flex items-center justify-between h-16">
