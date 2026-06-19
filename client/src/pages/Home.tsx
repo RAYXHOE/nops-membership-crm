@@ -68,7 +68,7 @@ export default function Home() {
                 현재 <strong>NOPS 멤버십 프로그램을 내부 테스트 중</strong>입니다.
               </p>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                가입 및 쿠폰 발급은 정상적으로 진행되지만, 쿠폰 사용을 통한 할인 적용은 <strong>2025년 7월 정식 오픈 이후</strong>부터 가능합니다.
+                가입 및 쿠폰 발급은 정상적으로 진행되지만, 쿠폰 사용을 통한 할인 적용은 <strong>2026년 7월 정식 오픈 이후</strong>부터 가능합니다.
               </p>
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
                 <p className="text-xs text-amber-700 font-medium">미리 가입하시면 정식 오픈 시 쿠폰이 자동 적용됩니다. 가입 후 마이페이지에서 쿠폰을 확인하실 수 있습니다.</p>
