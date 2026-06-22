@@ -75,7 +75,7 @@ export default function AdminAnalytics() {
   const { memberStats: ms, couponStats: cs, purchaseStats: ps } = query.data ?? {};
 
   const branchCodesQuery = trpc.admin.listBranchCodes.useQuery();
-  const branchCodes = branchCodesQuery.data ?? [];
+  const branchCodes = (branchCodesQuery.data ?? []) as { code: string; name: string }[];
 
   const membersPeriodQuery = trpc.admin.getMembersByPeriod.useQuery(
     { startDate: start, endDate: end, groupBy },
@@ -238,8 +238,8 @@ export default function AdminAnalytics() {
                 <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체 지점</SelectItem>
-                  {branchCodes.map((code) => (
-                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                  {branchCodes.map((b) => (
+                    <SelectItem key={b.code} value={b.code}>{b.name} ({b.code})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

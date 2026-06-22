@@ -44,7 +44,7 @@ const roleConfig: Record<Role, { label: string; desc: string; color: string; ico
   },
 };
 
-// 인라인 지점 코드 편집 컴포넌트
+// 지점 선택 드롭다운 컴포넌트 (등록된 지점 목록에서 선택)
 function BranchCodeEditor({
   userId,
   currentCode,
@@ -56,67 +56,41 @@ function BranchCodeEditor({
   currentRole: Role;
   onSave: () => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(currentCode ?? "");
   const utils = trpc.useUtils();
+  const branchCodesQuery = trpc.admin.listBranchCodes.useQuery();
+  const branchCodes = (branchCodesQuery.data ?? []) as { code: string; name: string }[];
 
   const updateMutation = trpc.admin.updateUserRole.useMutation({
     onSuccess: () => {
       utils.admin.listUsers.invalidate();
-      setEditing(false);
-      toast.success("지점 코드가 저장되었습니다.");
+      toast.success("지점이 저장되었습니다.");
       onSave();
     },
     onError: (e) => toast.error(e.message),
   });
 
-  if (!editing) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className={`text-sm font-mono ${currentCode ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
-          {currentCode || "—"}
-        </span>
-        {currentRole === "branch_admin" && (
-          <button
-            onClick={() => { setValue(currentCode ?? ""); setEditing(true); }}
-            className="p-1 rounded hover:bg-muted transition-colors"
-          >
-            <Edit3 className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
-        )}
-      </div>
-    );
+  if (currentRole !== "branch_admin") {
+    return <span className="text-sm text-muted-foreground">—</span>;
   }
 
   return (
-    <div className="flex items-center gap-1.5">
-      <Input
-        value={value}
-        onChange={(e) => setValue(e.target.value.toUpperCase())}
-        placeholder="예: SINCHON"
-        className="h-7 text-xs w-28 font-mono"
-        maxLength={20}
-        autoFocus
-        onKeyDown={(e) => {
-          if (e.key === "Enter") updateMutation.mutate({ userId, role: currentRole, branchCode: value || null });
-          if (e.key === "Escape") setEditing(false);
-        }}
-      />
-      <button
-        onClick={() => updateMutation.mutate({ userId, role: currentRole, branchCode: value || null })}
-        disabled={updateMutation.isPending}
-        className="p-1 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
-      >
-        <Check className="w-3.5 h-3.5 text-primary" />
-      </button>
-      <button
-        onClick={() => setEditing(false)}
-        className="p-1 rounded hover:bg-muted transition-colors"
-      >
-        <X className="w-3.5 h-3.5 text-muted-foreground" />
-      </button>
-    </div>
+    <Select
+      value={currentCode ?? "none"}
+      onValueChange={(v) => updateMutation.mutate({ userId, role: currentRole, branchCode: v === "none" ? null : v })}
+      disabled={updateMutation.isPending}
+    >
+      <SelectTrigger className="w-36 h-8 text-xs">
+        <SelectValue placeholder="지점 선택" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">지점 선택 안함</SelectItem>
+        {branchCodes.map((b) => (
+          <SelectItem key={b.code} value={b.code}>{b.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
+
 }
 
 export default function AdminUsers() {

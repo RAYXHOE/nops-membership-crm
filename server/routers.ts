@@ -34,6 +34,11 @@ import {
   updateVisit,
   useCoupon,
   expireOverdueCoupons,
+  listBranches,
+  getBranchByCode,
+  createBranch,
+  updateBranch,
+  deleteBranch,
 } from "./db";
 import { sendWelcomeEmail, sendOtpEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
@@ -851,16 +856,9 @@ export const appRouter = router({
 
     // 지점 코드 목록 조회
     listBranchCodes: staffProcedure.query(async () => {
-      const db = await (await import("./db")).getDb();
-      if (!db) return [];
-      const { coupons } = await import("../drizzle/schema");
-      const { isNotNull, sql } = await import("drizzle-orm");
-      const result = await db
-        .selectDistinct({ branchCode: coupons.usedBranchCode })
-        .from(coupons)
-        .where(isNotNull(coupons.usedBranchCode))
-        .orderBy(coupons.usedBranchCode);
-      return result.map((r) => r.branchCode!).filter(Boolean);
+      // branches 테이블 기반으로 변경 - 활성 지점만 반환
+      const activeBranches = await listBranches(true);
+      return activeBranches.map((b) => ({ code: b.code, name: b.name }));
     }),
 
     // 기간별 가입자 통계
@@ -1134,6 +1132,46 @@ export const appRouter = router({
           role: input.role,
           branchCode: input.branchCode ?? null,
         }).where(eq(users.id, input.userId));
+        return { success: true };
+      }),
+
+    // ─── 지점 관리 (admin 전용) ──────────────────────────────────────────────
+    listBranches: adminProcedure.query(async () => {
+      return listBranches();
+    }),
+
+    createBranch: superAdminProcedure
+      .input(z.object({
+        code: z.string().min(1).max(20).regex(/^[A-Z0-9_]+$/, "영문 대문자, 숫자, 언더스코어만 사용 가능합니다"),
+        name: z.string().min(1).max(100),
+        address: z.string().optional(),
+        phone: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const existing = await getBranchByCode(input.code);
+        if (existing) throw new TRPCError({ code: "CONFLICT", message: "이미 존재하는 지점 코드입니다." });
+        await createBranch({ code: input.code, name: input.name, address: input.address, phone: input.phone });
+        return { success: true };
+      }),
+
+    updateBranch: superAdminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().min(1).max(100).optional(),
+        address: z.string().optional().nullable(),
+        phone: z.string().optional().nullable(),
+        isActive: z.boolean().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateBranch(id, data);
+        return { success: true };
+      }),
+
+    deleteBranch: superAdminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteBranch(input.id);
         return { success: true };
       }),
   }),

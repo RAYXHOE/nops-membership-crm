@@ -154,3 +154,18 @@ export const otpCodes = mysqlTable("otp_codes", {
   used: boolean("used").notNull().default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+// ─── Branches (지점 마스터) ────────────────────────────────────────────────────
+export const branches = mysqlTable("branches", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 20 }).notNull().unique(), // 지점 코드 (예: SINCHON)
+  name: varchar("name", { length: 100 }).notNull(),         // 지점명 (예: 신촌점)
+  address: text("address"),
+  phone: varchar("phone", { length: 20 }),
+  isActive: boolean("isActive").notNull().default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Branch = typeof branches.$inferSelect;
+export type InsertBranch = typeof branches.$inferInsert;

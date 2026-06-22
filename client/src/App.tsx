@@ -18,6 +18,7 @@ import AdminMemberDetail from "./pages/admin/MemberDetail";
 import AdminCoupons from "./pages/admin/Coupons";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminUsers from "./pages/admin/Users";
+import AdminBranches from "./pages/admin/Branches";
 
 function Router() {
   return (
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/admin/members/:id" component={AdminMemberDetail} />
       <Route path="/admin/coupons" component={AdminCoupons} />
       <Route path="/admin/analytics" component={AdminAnalytics} />
+      <Route path="/admin/branches" component={AdminBranches} />
       <Route path="/admin/users" component={AdminUsers} />
 
       <Route path="/404" component={NotFound} />

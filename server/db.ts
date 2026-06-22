@@ -694,3 +694,41 @@ export async function deleteExpiredOtps() {
   if (!db) return;
   await db.delete(otpCodes).where(lte(otpCodes.expiresAt, new Date()));
 }
+
+// ─── Branches ─────────────────────────────────────────────────────────────────
+import { branches } from "../drizzle/schema";
+import type { InsertBranch } from "../drizzle/schema";
+
+export async function listBranches(activeOnly = false) {
+  const db = await getDb();
+  if (!db) return [];
+  if (activeOnly) {
+    return db.select().from(branches).where(eq(branches.isActive, true)).orderBy(branches.name);
+  }
+  return db.select().from(branches).orderBy(branches.name);
+}
+
+export async function getBranchByCode(code: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(branches).where(eq(branches.code, code)).limit(1);
+  return result[0];
+}
+
+export async function createBranch(data: InsertBranch) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(branches).values(data);
+}
+
+export async function updateBranch(id: number, data: Partial<InsertBranch>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(branches).set(data).where(eq(branches.id, id));
+}
+
+export async function deleteBranch(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(branches).where(eq(branches.id, id));
+}
