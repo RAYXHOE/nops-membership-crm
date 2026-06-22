@@ -61,7 +61,7 @@ export type InsertMember = typeof members.$inferInsert;
 export const couponTemplates = mysqlTable("coupon_templates", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
-  type: mysqlEnum("type", ["discount_percent", "corkage_free", "birthday", "anniversary"]).notNull(),
+  type: mysqlEnum("type", ["discount_percent", "corkage_free", "birthday", "anniversary", "employee"]).notNull(),
   discountPercent: int("discountPercent"),
   description: text("description"),
   validDays: int("validDays").notNull().default(365), // 발급 후 유효 기간(일)
@@ -78,7 +78,7 @@ export const coupons = mysqlTable("coupons", {
   memberId: int("memberId").notNull(),
   templateId: int("templateId").notNull(),
   code: varchar("code", { length: 20 }).notNull().unique(),
-  type: mysqlEnum("type", ["discount_percent", "corkage_free", "birthday", "anniversary"]).notNull(),
+  type: mysqlEnum("type", ["discount_percent", "corkage_free", "birthday", "anniversary", "employee"]).notNull(),
   discountPercent: int("discountPercent"),
   name: varchar("name", { length: 100 }).notNull(),
   description: text("description"),

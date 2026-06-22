@@ -90,7 +90,7 @@ export default function AdminMemberDetail() {
 
   // Coupon issue
   const [couponOpen, setCouponOpen] = useState(false);
-  const [couponType, setCouponType] = useState<"discount_percent" | "corkage_free" | "birthday">("discount_percent");
+  const [couponType, setCouponType] = useState<"discount_percent" | "corkage_free" | "birthday" | "employee">("discount_percent");
   const issueCouponMutation = trpc.admin.issueCoupon.useMutation({
     onSuccess: () => {
       utils.admin.listCoupons.invalidate({ memberId });
@@ -464,6 +464,7 @@ export default function AdminMemberDetail() {
                             <SelectItem value="discount_percent">10% 할인 쿠폰</SelectItem>
                             <SelectItem value="corkage_free">콜키지 프리 쿠폰</SelectItem>
                             <SelectItem value="birthday">생일 15% 할인 쿠폰</SelectItem>
+                            <SelectItem value="employee">임직원 30% 할인 쿠폰</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

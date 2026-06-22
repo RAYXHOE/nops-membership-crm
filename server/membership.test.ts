@@ -11,6 +11,8 @@ vi.mock("./db", () => {
 
   return {
     getMemberByEmail: vi.fn(async (email: string) => members[email] ?? undefined),
+    getMemberByPhone: vi.fn(async () => undefined),
+    getMemberByNameAndPhone: vi.fn(async () => undefined),
     createMember: vi.fn(async () => { memberIdCounter++; }),
     createConsentLog: vi.fn(async () => {}),
     getCouponTemplateByType: vi.fn(async (type: string) => ({

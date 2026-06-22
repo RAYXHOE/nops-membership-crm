@@ -1,6 +1,6 @@
 // Shared types between client and server
 
-export type CouponType = "discount_percent" | "corkage_free" | "birthday" | "anniversary";
+export type CouponType = "discount_percent" | "corkage_free" | "birthday" | "anniversary" | "employee";
 export type CouponStatus = "active" | "used" | "expired";
 export type MemberStatus = "active" | "inactive" | "withdrawn";
 

@@ -95,6 +95,36 @@ export async function getMemberByEmail(email: string) {
   return result[0];
 }
 
+export async function getMemberByPhone(phone: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  // 전화번호 숫자만 비교 (하이픈 제거)
+  const normalized = phone.replace(/[^0-9]/g, "");
+  const result = await db.select().from(members)
+    .where(eq(members.phone, phone))
+    .limit(1);
+  if (result[0]) return result[0];
+  // 숫자만 저장된 경우도 체크
+  const result2 = await db.select().from(members)
+    .where(eq(members.phone, normalized))
+    .limit(1);
+  return result2[0];
+}
+
+export async function getMemberByNameAndPhone(name: string, phone: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const normalized = phone.replace(/[^0-9]/g, "");
+  const { and, or } = await import("drizzle-orm");
+  const result = await db.select().from(members)
+    .where(and(
+      eq(members.name, name),
+      or(eq(members.phone, phone), eq(members.phone, normalized))
+    ))
+    .limit(1);
+  return result[0];
+}
+
 export async function listMembers(opts?: {
   search?: string;
   status?: "active" | "inactive" | "withdrawn";
@@ -150,7 +180,7 @@ export async function listCouponTemplates() {
   return db.select().from(couponTemplates).where(eq(couponTemplates.isActive, true));
 }
 
-export async function getCouponTemplateByType(type: "discount_percent" | "corkage_free" | "birthday" | "anniversary") {
+export async function getCouponTemplateByType(type: "discount_percent" | "corkage_free" | "birthday" | "anniversary" | "employee") {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db

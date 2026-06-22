@@ -18,6 +18,8 @@ import {
   getConsentLogsByMemberId,
   getMemberByEmail,
   getMemberById,
+  getMemberByPhone,
+  getMemberByNameAndPhone,
   getMemberStats,
   getMembersWithBirthdayToday,
   getPurchaseStats,
@@ -146,6 +148,24 @@ export const appRouter = router({
           throw new TRPCError({
             code: "CONFLICT",
             message: "이미 가입된 이메일입니다.",
+          });
+        }
+
+        // 동일 전화번호 중복 체크 (다른 이메일로 재가입 방지)
+        const existingByPhone = await getMemberByPhone(input.phone);
+        if (existingByPhone) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "이미 해당 전화번호로 가입된 계정이 있습니다. 기존 계정으로 마이페이지를 이용해 주세요.",
+          });
+        }
+
+        // 이름+전화번호 중복 체크
+        const existingByNamePhone = await getMemberByNameAndPhone(input.name, input.phone);
+        if (existingByNamePhone) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "동일한 이름과 전화번호로 이미 가입된 계정이 있습니다.",
           });
         }
 
@@ -541,17 +561,60 @@ export const appRouter = router({
           status: z.enum(["active", "used", "expired"]).optional(),
           limit: z.number().min(1).max(100).default(50),
           offset: z.number().min(0).default(0),
+          memberSearch: z.string().optional(), // 회원 이름/이메일 검색
+          usedBranchCode: z.string().optional(), // 사용 지점 필터
         })
       )
       .query(async ({ input }) => {
-        return listAllCoupons(input);
+        const db = await (await import("./db")).getDb();
+        if (!db) return { items: [], total: 0 };
+        const { coupons, members } = await import("../drizzle/schema");
+        const { and, eq, like, or, isNotNull, desc, sql } = await import("drizzle-orm");
+        const conditions: ReturnType<typeof eq>[] = [];
+        if (input.memberId) conditions.push(eq(coupons.memberId, input.memberId) as ReturnType<typeof eq>);
+        if (input.status) conditions.push(eq(coupons.status, input.status) as ReturnType<typeof eq>);
+        if (input.usedBranchCode) conditions.push(eq(coupons.usedBranchCode, input.usedBranchCode) as ReturnType<typeof eq>);
+        const where = conditions.length > 0 ? and(...conditions) : undefined;
+        const limit = input.limit;
+        const offset = input.offset;
+        // 회원 이름 검색이 있으면 join 후 필터
+        if (input.memberSearch) {
+          const searchPattern = `%${input.memberSearch}%`;
+          const [items, countResult] = await Promise.all([
+            db.select({ coupon: coupons, memberName: members.name, memberEmail: members.email })
+              .from(coupons)
+              .leftJoin(members, eq(coupons.memberId, members.id))
+              .where(and(where, or(like(members.name, searchPattern), like(members.email, searchPattern))))
+              .orderBy(desc(coupons.issuedAt)).limit(limit).offset(offset),
+            db.select({ count: sql<number>`count(*)` }).from(coupons)
+              .leftJoin(members, eq(coupons.memberId, members.id))
+              .where(and(where, or(like(members.name, searchPattern), like(members.email, searchPattern)))),
+          ]);
+          return { items, total: Number(countResult[0]?.count ?? 0) };
+        }
+        return listAllCoupons({ memberId: input.memberId, status: input.status, limit, offset });
+      }),
+
+    // 쿠폰 사용처리 되돌리기 (used → active)
+    revertCoupon: branchAdminProcedure
+      .input(z.object({ couponId: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { coupons } = await import("../drizzle/schema");
+        const { eq, and } = await import("drizzle-orm");
+        const result = await db.select().from(coupons).where(and(eq(coupons.id, input.couponId), eq(coupons.status, "used"))).limit(1);
+        if (!result[0]) throw new TRPCError({ code: "NOT_FOUND", message: "사용 완료 상태의 쿠폰이 아닙니다." });
+        await db.update(coupons).set({ status: "active", usedAt: null, usedByStaffId: null, usedBranchCode: null, usedNote: null })
+          .where(eq(coupons.id, input.couponId));
+        return { success: true };
       }),
 
     issueCoupon: branchAdminProcedure
       .input(
         z.object({
           memberId: z.number(),
-          type: z.enum(["discount_percent", "corkage_free", "birthday"]),
+          type: z.enum(["discount_percent", "corkage_free", "birthday", "employee"]),
           validDays: z.number().min(1).default(365),
           note: z.string().optional(),
         })
@@ -564,7 +627,8 @@ export const appRouter = router({
         const expiresAt = new Date(now);
         expiresAt.setDate(expiresAt.getDate() + input.validDays);
 
-        const prefix = input.type === "discount_percent" ? "NOPS" : input.type === "corkage_free" ? "CORK" : "BDAY";
+        const prefix = input.type === "discount_percent" ? "NOPS" : input.type === "corkage_free" ? "CORK" :
+                       input.type === "employee" ? "EMP" : "BDAY";
 
         await issueCoupon({
           memberId: input.memberId,
@@ -578,6 +642,32 @@ export const appRouter = router({
           birthdayYear: input.type === "birthday" ? now.getFullYear() : undefined,
         });
 
+        return { success: true };
+      }),
+
+    // 임직원 쿠폰 발급 (어드민 전용)
+    issueEmployeeCoupon: adminProcedure
+      .input(z.object({
+        memberId: z.number(),
+        note: z.string().optional(),
+        validDays: z.number().min(1).default(365),
+      }))
+      .mutation(async ({ input }) => {
+        const template = await getCouponTemplateByType("employee");
+        if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "임직원 쿠폰 템플릿이 없습니다." });
+        const now = new Date();
+        const expiresAt = new Date(now);
+        expiresAt.setDate(expiresAt.getDate() + input.validDays);
+        await issueCoupon({
+          memberId: input.memberId,
+          templateId: template.id,
+          code: generateCouponCode("EMP"),
+          type: "employee",
+          discountPercent: template.discountPercent,
+          name: template.name,
+          description: input.note ?? template.description,
+          expiresAt,
+        });
         return { success: true };
       }),
 
