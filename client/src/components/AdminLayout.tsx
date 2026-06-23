@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   BarChart3, ChevronRight, Crown, LogOut, Tag,
-  Users, LayoutDashboard, UserCog, ShieldOff, Menu, X, AlertTriangle, MapPin,
+  Users, LayoutDashboard, UserCog, ShieldOff, Menu, X, AlertTriangle, MapPin, MessageSquare,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -22,6 +22,7 @@ const navItems = [
   { href: "/admin/members", icon: Users, label: "회원 관리", roles: ["admin", "staff", "branch_admin"] },
   { href: "/admin/coupons", icon: Tag, label: "쿠폰 관리", roles: ["admin", "staff", "branch_admin"] },
   { href: "/admin/analytics", icon: BarChart3, label: "데이터 분석", roles: ["admin", "staff"] },
+  { href: "/admin/alimtalk", icon: MessageSquare, label: "알림톡 내역", roles: ["admin", "staff"] },
   { href: "/admin/branches", icon: MapPin, label: "지점 관리", roles: ["admin"] },
   { href: "/admin/users", icon: UserCog, label: "권한 관리", roles: ["admin"] },
 ];

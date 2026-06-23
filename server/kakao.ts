@@ -1,4 +1,5 @@
 import { SolapiMessageService } from "solapi";
+import { createAlimtalkLog } from "./db";
 
 // ─── 솔라피 클라이언트 초기화 ─────────────────────────────────────────────────
 function getSolapiClient() {
@@ -49,9 +50,11 @@ export async function sendWelcomeAlimtalk(opts: {
     } as Parameters<typeof client.send>[0]);
 
     console.log(`[Kakao] Welcome alimtalk sent to ${opts.to}`);
+    await createAlimtalkLog({ type: "welcome", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_WELCOME, status: "success" });
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send welcome alimtalk to ${opts.to}:`, err);
+    await createAlimtalkLog({ type: "welcome", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_WELCOME, status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }
@@ -85,9 +88,11 @@ export async function sendExpiryAlimtalk(opts: {
     }
 
     console.log(`[Kakao] Expiry alimtalk sent to ${opts.to}: ${sent}건`);
+    await createAlimtalkLog({ type: "expiry", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_EXPIRY, status: "success", variables: JSON.stringify({ count: sent }) });
     return { success: true, sent };
   } catch (err) {
     console.error(`[Kakao] Failed to send expiry alimtalk to ${opts.to}:`, err);
+    await createAlimtalkLog({ type: "expiry", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_EXPIRY, status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }
@@ -128,9 +133,11 @@ export async function sendAnniversaryAlimtalk(opts: {
       },
     } as Parameters<typeof client.send>[0]);
     console.log(`[Kakao] Anniversary alimtalk sent to ${opts.to}`);
+    await createAlimtalkLog({ type: "anniversary", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_ANNIVERSARY || TEMPLATE_EXPIRY, status: "success" });
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send anniversary alimtalk to ${opts.to}:`, err);
+    await createAlimtalkLog({ type: "anniversary", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_ANNIVERSARY || TEMPLATE_EXPIRY, status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }
@@ -160,9 +167,11 @@ export async function sendBirthdayAlimtalk(opts: {
       },
     } as Parameters<typeof client.send>[0]);
     console.log(`[Kakao] Birthday alimtalk sent to ${opts.to}`);
+    await createAlimtalkLog({ type: "birthday", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_EXPIRY, status: "success" });
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send birthday alimtalk to ${opts.to}:`, err);
+    await createAlimtalkLog({ type: "birthday", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_EXPIRY, status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }
@@ -191,9 +200,11 @@ export async function sendCorkageReissueAlimtalk(opts: {
       },
     } as Parameters<typeof client.send>[0]);
     console.log(`[Kakao] Corkage reissue alimtalk sent to ${opts.to}`);
+    await createAlimtalkLog({ type: "corkage", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_CORKAGE || TEMPLATE_EXPIRY, status: "success" });
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send corkage reissue alimtalk to ${opts.to}:`, err);
+    await createAlimtalkLog({ type: "corkage", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_CORKAGE || TEMPLATE_EXPIRY, status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }

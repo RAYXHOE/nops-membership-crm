@@ -169,3 +169,20 @@ export const branches = mysqlTable("branches", {
 
 export type Branch = typeof branches.$inferSelect;
 export type InsertBranch = typeof branches.$inferInsert;
+
+// ─── Alimtalk Logs (알림톡 발송 로그) ────────────────────────────────────────
+export const alimtalkLogs = mysqlTable("alimtalk_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  type: varchar("type", { length: 50 }).notNull(), // welcome, expiry, anniversary, birthday, corkage
+  recipientPhone: varchar("recipientPhone", { length: 20 }).notNull(),
+  recipientName: varchar("recipientName", { length: 100 }),
+  memberId: int("memberId"),
+  templateId: varchar("templateId", { length: 100 }),
+  variables: text("variables"), // JSON string
+  status: mysqlEnum("status", ["success", "failed"]).notNull(),
+  errorMessage: text("errorMessage"),
+  sentAt: timestamp("sentAt").defaultNow().notNull(),
+});
+
+export type AlimtalkLog = typeof alimtalkLogs.$inferSelect;
+export type InsertAlimtalkLog = typeof alimtalkLogs.$inferInsert;

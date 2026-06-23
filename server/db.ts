@@ -732,3 +732,40 @@ export async function deleteBranch(id: number) {
   if (!db) throw new Error("DB not available");
   await db.delete(branches).where(eq(branches.id, id));
 }
+
+// ─── Alimtalk Logs ────────────────────────────────────────────────────────────
+import { alimtalkLogs } from "../drizzle/schema";
+import type { InsertAlimtalkLog } from "../drizzle/schema";
+
+export async function createAlimtalkLog(data: InsertAlimtalkLog) {
+  try {
+    const db = await getDb();
+    if (!db) return;
+    await db.insert(alimtalkLogs).values(data);
+  } catch (err) {
+    // 로그 저장 실패는 무시 (알림톡 발송 자체에 영향 없음)
+    console.error("[AlimtalkLog] Failed to save log:", err);
+  }
+}
+
+export async function listAlimtalkLogs(opts?: {
+  type?: string;
+  status?: "success" | "failed";
+  limit?: number;
+  offset?: number;
+}) {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+  const { and, eq, desc, sql } = await import("drizzle-orm");
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (opts?.type) conditions.push(eq(alimtalkLogs.type, opts.type) as ReturnType<typeof eq>);
+  if (opts?.status) conditions.push(eq(alimtalkLogs.status, opts.status) as ReturnType<typeof eq>);
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const limit = opts?.limit ?? 50;
+  const offset = opts?.offset ?? 0;
+  const [items, countResult] = await Promise.all([
+    db.select().from(alimtalkLogs).where(where).orderBy(desc(alimtalkLogs.sentAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(alimtalkLogs).where(where),
+  ]);
+  return { items, total: Number(countResult[0]?.count ?? 0) };
+}

@@ -39,6 +39,7 @@ import {
   createBranch,
   updateBranch,
   deleteBranch,
+  listAlimtalkLogs,
 } from "./db";
 import { sendWelcomeEmail, sendOtpEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
@@ -1133,6 +1134,18 @@ export const appRouter = router({
           branchCode: input.branchCode ?? null,
         }).where(eq(users.id, input.userId));
         return { success: true };
+      }),
+
+    // ─── 알림톡 발송 로그 ──────────────────────────────────────────────────
+    listAlimtalkLogs: staffProcedure
+      .input(z.object({
+        type: z.string().optional(),
+        status: z.enum(["success", "failed"]).optional(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }))
+      .query(async ({ input }) => {
+        return listAlimtalkLogs(input);
       }),
 
     // ─── 지점 관리 (admin 전용) ──────────────────────────────────────────────
