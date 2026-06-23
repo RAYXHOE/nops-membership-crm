@@ -14,6 +14,8 @@ const PFID = process.env.SOLAPI_KAKAO_PFID ?? "";
 const SENDER = process.env.SOLAPI_SENDER_PHONE ?? "";
 const TEMPLATE_WELCOME = process.env.SOLAPI_TEMPLATE_WELCOME ?? "";
 const TEMPLATE_EXPIRY = process.env.SOLAPI_TEMPLATE_EXPIRY ?? "";
+const TEMPLATE_ANNIVERSARY = process.env.SOLAPI_TEMPLATE_ANNIVERSARY ?? "";
+const TEMPLATE_CORKAGE = process.env.SOLAPI_TEMPLATE_CORKAGE ?? "";
 
 // 전화번호 정규화 (하이픈 제거)
 function normalizePhone(phone: string): string {
@@ -116,8 +118,7 @@ export async function sendAnniversaryAlimtalk(opts: {
       from: normalizePhone(SENDER),
       kakaoOptions: {
         pfId: PFID,
-        // 결혼기념일 전용 템플릿이 없으면 생일 쿠폰 템플릿 사용
-        templateId: process.env.SOLAPI_TEMPLATE_ANNIVERSARY ?? TEMPLATE_WELCOME,
+        templateId: TEMPLATE_ANNIVERSARY || TEMPLATE_EXPIRY,
         variables: {
           "#{이름}": opts.name,
           "#{쿠폰명}": `결혼기념일 ${opts.discountPercent}% 할인 쿠폰`,
@@ -162,6 +163,37 @@ export async function sendBirthdayAlimtalk(opts: {
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send birthday alimtalk to ${opts.to}:`, err);
+    return { success: false, error: String(err) };
+  }
+}
+
+// ─── 콜키지 프리 쿠폰 재발급 알림톡 ──────────────────────────────────────────
+export async function sendCorkageReissueAlimtalk(opts: {
+  to: string;
+  name: string;
+  couponCode: string;
+  expiresAt: Date;
+}) {
+  try {
+    const client = getSolapiClient();
+    await client.send({
+      to: normalizePhone(opts.to),
+      from: normalizePhone(SENDER),
+      kakaoOptions: {
+        pfId: PFID,
+        templateId: TEMPLATE_CORKAGE || TEMPLATE_EXPIRY,
+        variables: {
+          "#{이름}": opts.name,
+          "#{쿠폰코드}": opts.couponCode,
+          "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
+          "#{링크}": "https://membership.nops.kr/mypage",
+        },
+      },
+    } as Parameters<typeof client.send>[0]);
+    console.log(`[Kakao] Corkage reissue alimtalk sent to ${opts.to}`);
+    return { success: true };
+  } catch (err) {
+    console.error(`[Kakao] Failed to send corkage reissue alimtalk to ${opts.to}:`, err);
     return { success: false, error: String(err) };
   }
 }

@@ -9,7 +9,7 @@ import {
   getCouponsExpiringInDays,
 } from "./db";
 import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
-import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk } from "./kakao";
+import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk, sendCorkageReissueAlimtalk } from "./kakao";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -303,8 +303,15 @@ export async function corkageReissueHandler(req: Request, res: Response) {
         description: "콜키지 프리 쿠폰 자동 재발급",
         expiresAt,
       });
-      // 솔라피 알림톡 연동 시 아래 주석 해제
-      // await sendCorkageReissueAlimtalk({ to: member.phone, name: member.name, couponCode, expiresAt });
+      // 콜키지 재발급 알림톡 발송 (비동기)
+      if (member.phone) {
+        sendCorkageReissueAlimtalk({
+          to: member.phone,
+          name: member.name ?? "고객",
+          couponCode,
+          expiresAt,
+        }).catch((err) => console.error("[Kakao] Corkage reissue alimtalk failed:", err));
+      }
       issued++;
     }
 
