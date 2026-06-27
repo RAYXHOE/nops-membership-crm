@@ -769,3 +769,142 @@ export async function listAlimtalkLogs(opts?: {
   ]);
   return { items, total: Number(countResult[0]?.count ?? 0) };
 }
+
+// ─── Points (적립금) ───────────────────────────────────────────────────────────
+import { points } from "../drizzle/schema";
+import type { InsertPoint } from "../drizzle/schema";
+
+const POINT_RATE = 0.03; // 3% 적립
+const POINT_MIN_USE = 10000; // 최소 사용 단위 1만원
+const POINT_EXPIRE_YEARS = 2; // 유효기간 2년
+
+/** 구매금액에서 적립금 계산 (원 단위, 100원 미만 절사) */
+export function calcEarnPoints(amount: number): number {
+  return Math.floor(amount * POINT_RATE / 100) * 100;
+}
+
+/** 적립금 적립 (구매 시 자동 호출) */
+export async function earnPoints(memberId: number, purchaseAmount: number, purchaseId: number, note?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const earnAmount = calcEarnPoints(purchaseAmount);
+  if (earnAmount <= 0) return { earned: 0 };
+
+  // 현재 잔액 조회
+  const member = await getMemberById(memberId);
+  if (!member) throw new Error("회원을 찾을 수 없습니다.");
+  const newBalance = (member.pointBalance ?? 0) + earnAmount;
+
+  // 만료일 계산 (2년 후)
+  const expiresAt = new Date();
+  expiresAt.setFullYear(expiresAt.getFullYear() + POINT_EXPIRE_YEARS);
+
+  // 이력 기록
+  await db.insert(points).values({
+    memberId,
+    type: "earn",
+    amount: earnAmount,
+    balanceAfter: newBalance,
+    purchaseId,
+    note: note ?? `구매 적립 (${purchaseAmount.toLocaleString()}원 × 3%)`,
+    expiresAt,
+  });
+
+  // 잔액 업데이트
+  await db.update(members).set({ pointBalance: newBalance }).where(eq(members.id, memberId));
+  return { earned: earnAmount, newBalance };
+}
+
+/** 구매 취소 시 적립금 회수 */
+export async function cancelPoints(memberId: number, purchaseId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const { and } = await import("drizzle-orm");
+
+  // 해당 구매의 적립 이력 조회
+  const earnLog = await db.select().from(points)
+    .where(and(eq(points.memberId, memberId), eq(points.purchaseId, purchaseId), eq(points.type, "earn")))
+    .limit(1);
+  if (!earnLog[0]) return { cancelled: 0 };
+
+  const earnAmount = earnLog[0].amount;
+  const member = await getMemberById(memberId);
+  if (!member) throw new Error("회원을 찾을 수 없습니다.");
+  const newBalance = Math.max(0, (member.pointBalance ?? 0) - earnAmount);
+
+  await db.insert(points).values({
+    memberId,
+    type: "cancel",
+    amount: -earnAmount,
+    balanceAfter: newBalance,
+    purchaseId,
+    note: "구매 취소로 인한 적립금 회수",
+  });
+
+  await db.update(members).set({ pointBalance: newBalance }).where(eq(members.id, memberId));
+  return { cancelled: earnAmount, newBalance };
+}
+
+/** 적립금 사용 처리 */
+export async function usePoints(memberId: number, useAmount: number, note?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  if (useAmount < POINT_MIN_USE) throw new Error(`최소 사용 금액은 ${POINT_MIN_USE.toLocaleString()}원입니다.`);
+  if (useAmount % POINT_MIN_USE !== 0) throw new Error(`${POINT_MIN_USE.toLocaleString()}원 단위로만 사용 가능합니다.`);
+
+  const member = await getMemberById(memberId);
+  if (!member) throw new Error("회원을 찾을 수 없습니다.");
+  if ((member.pointBalance ?? 0) < useAmount) throw new Error("적립금이 부족합니다.");
+
+  const newBalance = (member.pointBalance ?? 0) - useAmount;
+
+  await db.insert(points).values({
+    memberId,
+    type: "use",
+    amount: -useAmount,
+    balanceAfter: newBalance,
+    note: note ?? "적립금 사용",
+  });
+
+  await db.update(members).set({ pointBalance: newBalance }).where(eq(members.id, memberId));
+  return { used: useAmount, newBalance };
+}
+
+/** 회원 적립금 이력 조회 */
+export async function getPointsByMemberId(memberId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const { desc } = await import("drizzle-orm");
+  return db.select().from(points).where(eq(points.memberId, memberId)).orderBy(desc(points.createdAt));
+}
+
+/** 만료 적립금 처리 (heartbeat 스케줄러용) */
+export async function expirePoints() {
+  const db = await getDb();
+  if (!db) return { expired: 0 };
+  const { lte, and } = await import("drizzle-orm");
+  const now = new Date();
+
+  // 만료된 earn 이력에서 아직 expire 처리 안 된 것 조회
+  const expiredEarns = await db.select().from(points)
+    .where(and(eq(points.type, "earn"), lte(points.expiresAt, now)));
+
+  let expired = 0;
+  for (const earn of expiredEarns) {
+    const member = await getMemberById(earn.memberId);
+    if (!member || (member.pointBalance ?? 0) <= 0) continue;
+    const expireAmount = Math.min(earn.amount, member.pointBalance ?? 0);
+    const newBalance = Math.max(0, (member.pointBalance ?? 0) - expireAmount);
+    await db.insert(points).values({
+      memberId: earn.memberId,
+      type: "expire",
+      amount: -expireAmount,
+      balanceAfter: newBalance,
+      note: "유효기간 만료",
+    });
+    await db.update(members).set({ pointBalance: newBalance }).where(eq(members.id, earn.memberId));
+    expired++;
+  }
+  return { expired };
+}

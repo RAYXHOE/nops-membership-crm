@@ -52,6 +52,8 @@ export const members = mysqlTable("members", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   // 메모
   notes: text("notes"),
+  // 적립금
+  pointBalance: int("pointBalance").notNull().default(0),
 });
 
 export type Member = typeof members.$inferSelect;
@@ -186,3 +188,20 @@ export const alimtalkLogs = mysqlTable("alimtalk_logs", {
 
 export type AlimtalkLog = typeof alimtalkLogs.$inferSelect;
 export type InsertAlimtalkLog = typeof alimtalkLogs.$inferInsert;
+
+// ─── Points (적립금 이력) ──────────────────────────────────────────────────────
+export const points = mysqlTable("points", {
+  id: int("id").autoincrement().primaryKey(),
+  memberId: int("memberId").notNull(),
+  type: mysqlEnum("type", ["earn", "use", "expire", "cancel"]).notNull(),
+  // earn: 적립(+), use: 사용(-), expire: 만료(-), cancel: 구매취소로 회수(-)
+  amount: int("amount").notNull(), // 양수=적립, 음수=차감
+  balanceAfter: int("balanceAfter").notNull().default(0),
+  purchaseId: int("purchaseId"), // 연관 구매 이력 ID
+  note: text("note"),
+  expiresAt: timestamp("expiresAt"), // earn 타입만 사용 (2년 후)
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Point = typeof points.$inferSelect;
+export type InsertPoint = typeof points.$inferInsert;

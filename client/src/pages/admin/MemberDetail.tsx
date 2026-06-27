@@ -14,6 +14,9 @@ import {
   Edit3,
   CheckCircle2,
   Gift,
+  Coins,
+  TrendingUp,
+  Minus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +50,18 @@ export default function AdminMemberDetail() {
   const purchasesQuery = trpc.admin.getPurchases.useQuery({ memberId });
   const couponsQuery = trpc.admin.listCoupons.useQuery({ memberId, limit: 50 });
   const consentQuery = trpc.admin.getConsentLogs.useQuery({ memberId });
+  const pointsQuery = trpc.admin.getPointsByMember.useQuery({ memberId });
+  const [usePointsOpen, setUsePointsOpen] = useState(false);
+  const [usePointsAmount, setUsePointsAmount] = useState("10000");
+  const usePointsMutation = trpc.admin.usePoints.useMutation({
+    onSuccess: (data) => {
+      pointsQuery.refetch();
+      utils.admin.getMember.invalidate({ id: memberId });
+      setUsePointsOpen(false);
+      toast.success(`${data.used?.toLocaleString()}원 사용 처리 완료. 잔액: ${data.newBalance?.toLocaleString()}원`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const member = memberQuery.data;
 
@@ -221,6 +236,10 @@ export default function AdminMemberDetail() {
             <TabsTrigger value="notes" className="gap-1.5">
               <Edit3 className="w-3.5 h-3.5" />
               메모
+            </TabsTrigger>
+            <TabsTrigger value="points" className="gap-1.5">
+              <Coins className="w-3.5 h-3.5" />
+              적립금
             </TabsTrigger>
           </TabsList>
 
@@ -425,7 +444,7 @@ export default function AdminMemberDetail() {
                         {p.memo && <p className="text-xs text-muted-foreground mt-0.5">{p.memo}</p>}
                       </div>
                       <button
-                        onClick={() => deletePurchaseMutation.mutate({ id: p.id })}
+                        onClick={() => deletePurchaseMutation.mutate({ id: p.id, memberId })}
                         className="p-1.5 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -627,6 +646,92 @@ export default function AdminMemberDetail() {
                 <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap min-h-[100px]">
                   {member.notes || "메모가 없습니다."}
                 </p>
+              )}
+            </div>
+          </TabsContent>
+          {/* ─── Points ─── */}
+          <TabsContent value="points">
+            <div className="bg-card rounded-2xl border border-border/50 p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">적립금 이력</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-muted-foreground">현재 잔액</span>
+                    <span className="text-lg font-bold text-primary">{(member?.pointBalance ?? 0).toLocaleString()}원</span>
+                  </div>
+                </div>
+                <Button size="sm" className="gap-1.5" onClick={() => setUsePointsOpen(true)}
+                  disabled={(member?.pointBalance ?? 0) < 10000}>
+                  <Minus className="w-3.5 h-3.5" />사용 처리
+                </Button>
+              </div>
+
+              {/* 사용 다이얼로그 */}
+              {usePointsOpen && (
+                <div className="mb-5 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                  <p className="text-sm font-medium text-foreground mb-3">적립금 사용 처리</p>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Label className="text-xs">사용 금액 (1만원 단위)</Label>
+                      <Input
+                        type="number"
+                        min={10000}
+                        step={10000}
+                        value={usePointsAmount}
+                        onChange={(e) => setUsePointsAmount(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button size="sm" onClick={() => usePointsMutation.mutate({ memberId, amount: Number(usePointsAmount) })}
+                      disabled={usePointsMutation.isPending}>
+                      확인
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setUsePointsOpen(false)}>취소</Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    최소 1만원 / 1만원 단위 사용 가능 · 잔액: {(member?.pointBalance ?? 0).toLocaleString()}원
+                  </p>
+                </div>
+              )}
+
+              {/* 이력 목록 */}
+              {pointsQuery.isLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-8">로딩 중...</p>
+              ) : !pointsQuery.data?.length ? (
+                <p className="text-sm text-muted-foreground text-center py-8">적립금 이력이 없습니다</p>
+              ) : (
+                <div className="space-y-2">
+                  {pointsQuery.data.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          p.type === "earn" ? "bg-green-100" : "bg-red-100"
+                        }`}>
+                          {p.type === "earn" ? (
+                            <TrendingUp className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Minus className="w-4 h-4 text-red-500" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{p.note ?? p.type}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleString("ko-KR")}</p>
+                          {p.expiresAt && p.type === "earn" && (
+                            <p className="text-xs text-amber-600">만료: {new Date(p.expiresAt).toLocaleDateString("ko-KR")}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-bold ${
+                          p.amount > 0 ? "text-green-600" : "text-red-500"
+                        }`}>
+                          {p.amount > 0 ? "+" : ""}{p.amount.toLocaleString()}원
+                        </p>
+                        <p className="text-xs text-muted-foreground">잔액 {p.balanceAfter.toLocaleString()}원</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </TabsContent>

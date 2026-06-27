@@ -175,6 +175,14 @@ function CouponView({ memberId }: { memberId: number }) {
               <p className="text-xs text-muted-foreground">장</p>
             </div>
           </div>
+          {((member as typeof member & { pointBalance?: number }).pointBalance ?? 0) > 0 && (
+            <div className="flex items-center justify-between py-3 border-t border-border/30">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-foreground">적립금 잔액</span>
+              </div>
+              <span className="text-sm font-bold text-primary">{((member as typeof member & { pointBalance?: number }).pointBalance ?? 0).toLocaleString()}원</span>
+            </div>
+          )}
           {member.marketingConsent && (
             <div className="flex items-center justify-between py-3 border-t border-border/30">
               <div className="flex items-center gap-2">

@@ -40,6 +40,11 @@ import {
   updateBranch,
   deleteBranch,
   listAlimtalkLogs,
+  earnPoints,
+  cancelPoints,
+  usePoints,
+  getPointsByMemberId,
+  calcEarnPoints,
 } from "./db";
 import { sendWelcomeEmail, sendOtpEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
@@ -814,6 +819,17 @@ export const appRouter = router({
           purchasedAt: new Date(input.purchasedAt),
           recordedByStaffId: ctx.user.id,
         });
+        // 구매 완료 시 자동 적립 (finalAmount 기준 3%)
+        try {
+          const { getPurchasesByMemberId: getPurchases } = await import("./db");
+          const purchases = await getPurchases(input.memberId);
+          const latest = purchases[0]; // 가장 최신 구매
+          if (latest) {
+            await earnPoints(input.memberId, input.finalAmount, latest.id);
+          }
+        } catch (err) {
+          console.error("[적립금] 자동 적립 실패:", err);
+        }
         return { success: true };
       }),
 
@@ -839,8 +855,14 @@ export const appRouter = router({
       }),
 
     deletePurchase: branchAdminProcedure
-      .input(z.object({ id: z.number() }))
+      .input(z.object({ id: z.number(), memberId: z.number() }))
       .mutation(async ({ input }) => {
+        // 적립금 회수 (구매 취소)
+        try {
+          await cancelPoints(input.memberId, input.id);
+        } catch (err) {
+          console.error("[적립금] 회수 실패:", err);
+        }
         await deletePurchase(input.id);
         return { success: true };
       }),
@@ -1186,6 +1208,30 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         await deleteBranch(input.id);
         return { success: true };
+      }),
+
+    // ─── 적립금 관리 ──────────────────────────────────────────────────
+    getPointsByMember: branchAdminProcedure
+      .input(z.object({ memberId: z.number() }))
+      .query(async ({ input }) => {
+        return getPointsByMemberId(input.memberId);
+      }),
+
+    usePoints: branchAdminProcedure
+      .input(z.object({
+        memberId: z.number(),
+        amount: z.number().min(10000).multipleOf(10000),
+        note: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const result = await usePoints(input.memberId, input.amount, input.note);
+        return { success: true, ...result };
+      }),
+
+    calcPoints: branchAdminProcedure
+      .input(z.object({ finalAmount: z.number() }))
+      .query(async ({ input }) => {
+        return { earned: calcEarnPoints(input.finalAmount) };
       }),
   }),
 });
