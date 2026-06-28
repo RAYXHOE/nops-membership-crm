@@ -343,3 +343,26 @@ export async function cleanupExpiredOtpsHandler(req: Request, res: Response) {
     return res.status(500).json({ error: String(err), timestamp: new Date().toISOString() });
   }
 }
+
+/**
+ * POST /api/scheduled/expire-points
+ * 매월 1일 자정(KST) 실행
+ * 유효기간이 지난 적립금 자동 만료 처리
+ */
+export async function expirePointsHandler(req: Request, res: Response) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user.isCron) {
+      return res.status(403).json({ error: "cron-only endpoint" });
+    }
+
+    const { expirePoints } = await import("./db");
+    const result = await expirePoints();
+
+    console.log(`[Points Expire] Expired ${result.expired} members' points on ${new Date().toISOString().slice(0, 10)}`);
+    return res.json({ ok: true, expired: result.expired, date: new Date().toISOString().slice(0, 10) });
+  } catch (err) {
+    console.error("[Points Expire] Error:", err);
+    return res.status(500).json({ error: String(err), timestamp: new Date().toISOString() });
+  }
+}
