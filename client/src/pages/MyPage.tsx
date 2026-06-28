@@ -4,8 +4,13 @@ import { trpc } from "@/lib/trpc";
 import {
   Crown, ArrowLeft, Search, Gift, CheckCircle2, Clock,
   XCircle, QrCode, Copy, Heart, Pencil, Check, X,
-  Mail, ShieldCheck, Loader2
+  Mail, ShieldCheck, Loader2, MessageCircle, AlertTriangle
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -146,6 +151,10 @@ function OtpStep({ email, onSuccess, onBack }: { email: string; onSuccess: (memb
 
 function CouponView({ memberId }: { memberId: number }) {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+  const [showInquiry, setShowInquiry] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState("");
+  const [inquiryForm, setInquiryForm] = useState({ category: "other" as "coupon" | "membership" | "points" | "other", subject: "", content: "" });
   const couponsQuery = trpc.membership.getMyCoupons.useQuery({ memberId });
   const memberInfoQuery = trpc.membership.getMemberInfo.useQuery({ memberId });
   const member = memberInfoQuery.data;
@@ -153,6 +162,23 @@ function CouponView({ memberId }: { memberId: number }) {
   const activeCoupons = coupons.filter((c) => c.status === "active");
   const usedCoupons = coupons.filter((c) => c.status !== "active");
   const copyCode = (code: string) => { navigator.clipboard.writeText(code); toast.success("쿠폰 코드가 복사되었습니다."); };
+
+  const submitInquiryMutation = trpc.membership.submitInquiry.useMutation({
+    onSuccess: () => {
+      toast.success("문의가 접수되었습니다. 답변은 이메일로 안내됩니다.");
+      setShowInquiry(false);
+      setInquiryForm({ category: "other", subject: "", content: "" });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const withdrawMutation = trpc.membership.withdraw.useMutation({
+    onSuccess: () => {
+      toast.success("탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.");
+      memberInfoQuery.refetch();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const updateMarketingMutation = trpc.membership.updateMarketing.useMutation({
     onSuccess: (_, variables) => {
@@ -279,7 +305,93 @@ function CouponView({ memberId }: { memberId: number }) {
             </div>
           )}
         </DialogContent>
-      </Dialog>
+        </Dialog>
+
+      {/* 고객 문의 폼 */}
+      {showInquiry && (
+        <div className="mt-6 bg-card rounded-2xl border border-border/50 p-6">
+          <h3 className="text-sm font-semibold text-foreground mb-4">고객 문의</h3>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">문의 유형</Label>
+              <Select value={inquiryForm.category} onValueChange={(v) => setInquiryForm((f) => ({ ...f, category: v as typeof f.category }))}>
+                <SelectTrigger className="mt-1 h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="coupon">쿠폰</SelectItem>
+                  <SelectItem value="membership">멤버십</SelectItem>
+                  <SelectItem value="points">적립금</SelectItem>
+                  <SelectItem value="other">기타</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">제목</Label>
+              <Input className="mt-1" placeholder="문의 제목을 입력하세요" value={inquiryForm.subject} onChange={(e) => setInquiryForm((f) => ({ ...f, subject: e.target.value }))} maxLength={200} />
+            </div>
+            <div>
+              <Label className="text-xs">문의 내용</Label>
+              <Textarea className="mt-1 resize-none" rows={4} placeholder="문의 내용을 입력하세요" value={inquiryForm.content} onChange={(e) => setInquiryForm((f) => ({ ...f, content: e.target.value }))} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setShowInquiry(false)}>취소</Button>
+              <Button size="sm"
+                onClick={() => submitInquiryMutation.mutate({ memberId, name: member?.name ?? "", email: member?.email ?? "", phone: member?.phone ?? undefined, ...inquiryForm })}
+                disabled={!inquiryForm.subject || !inquiryForm.content || submitInquiryMutation.isPending}>
+                {submitInquiryMutation.isPending ? "제출 중..." : "문의 제출"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 탈퇴 폼 */}
+      {showWithdraw && (
+        <div className="mt-4 bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+            <h3 className="text-sm font-semibold text-red-700">멤버십 탈퇴</h3>
+          </div>
+          <p className="text-xs text-red-600 leading-relaxed mb-4">
+            탈퇴 시 보유 쿠폰과 적립금이 모두 소멸되며, 동일 연락처로 재가입 시 신규 회원으로 처리됩니다.
+          </p>
+          <div className="mb-4">
+            <Label className="text-xs text-red-700">탈퇴 사유 (선택)</Label>
+            <Textarea className="mt-1 resize-none border-red-200" rows={2} placeholder="탈퇴 사유를 입력해 주세요 (선택)" value={withdrawReason} onChange={(e) => setWithdrawReason(e.target.value)} />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setShowWithdraw(false)}>취소</Button>
+            <Button variant="destructive" size="sm"
+              onClick={() => {
+                if (confirm("정말 탈퇴하시겠습니까?\n\n보유 쿠폰과 적립금이 모두 소멸됩니다."))
+                  withdrawMutation.mutate({ memberId, reason: withdrawReason || undefined });
+              }}
+              disabled={withdrawMutation.isPending}>
+              {withdrawMutation.isPending ? "탈퇴 중..." : "탈퇴 확인"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 문의/탈퇴 버튼 */}
+      {member && member.status !== "withdrawn" && !showInquiry && !showWithdraw && (
+        <div className="mt-6 flex gap-3 justify-center">
+          <button
+            onClick={() => setShowInquiry(true)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />고객 문의
+          </button>
+          <span className="text-border">|</span>
+          <button
+            onClick={() => setShowWithdraw(true)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-500 transition-colors"
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />멤버십 탈퇴
+          </button>
+        </div>
+      )}
     </>
   );
 }

@@ -922,3 +922,39 @@ export async function expirePoints() {
   }
   return { expired };
 }
+
+// ─── Inquiries (고객 문의) ─────────────────────────────────────────────────────
+import { inquiries } from "../drizzle/schema";
+import type { InsertInquiry } from "../drizzle/schema";
+
+export async function createInquiry(data: InsertInquiry) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(inquiries).values(data);
+}
+
+export async function listInquiries(opts?: {
+  status?: "pending" | "answered" | "closed";
+  limit?: number;
+  offset?: number;
+}) {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+  const { and, eq, desc, sql } = await import("drizzle-orm");
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (opts?.status) conditions.push(eq(inquiries.status, opts.status) as ReturnType<typeof eq>);
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const limit = opts?.limit ?? 50;
+  const offset = opts?.offset ?? 0;
+  const [items, countResult] = await Promise.all([
+    db.select().from(inquiries).where(where).orderBy(desc(inquiries.createdAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`count(*)` }).from(inquiries).where(where),
+  ]);
+  return { items, total: Number(countResult[0]?.count ?? 0) };
+}
+
+export async function replyInquiry(id: number, adminReply: string, status: "answered" | "closed" = "answered") {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(inquiries).set({ adminReply, status, repliedAt: new Date() }).where(eq(inquiries.id, id));
+}

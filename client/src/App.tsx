@@ -20,6 +20,7 @@ import AdminAnalytics from "./pages/admin/Analytics";
 import AdminUsers from "./pages/admin/Users";
 import AdminBranches from "./pages/admin/Branches";
 import AdminAlimtalkLogs from "./pages/admin/AlimtalkLogs";
+import AdminInquiries from "./pages/admin/Inquiries";
 
 function Router() {
   return (
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/admin/coupons" component={AdminCoupons} />
       <Route path="/admin/analytics" component={AdminAnalytics} />
       <Route path="/admin/alimtalk" component={AdminAlimtalkLogs} />
+      <Route path="/admin/inquiries" component={AdminInquiries} />
       <Route path="/admin/branches" component={AdminBranches} />
       <Route path="/admin/users" component={AdminUsers} />
 

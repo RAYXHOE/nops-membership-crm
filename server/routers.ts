@@ -40,6 +40,9 @@ import {
   updateBranch,
   deleteBranch,
   listAlimtalkLogs,
+  createInquiry,
+  listInquiries,
+  replyInquiry,
   earnPoints,
   cancelPoints,
   usePoints,
@@ -491,6 +494,53 @@ export const appRouter = router({
         }
 
         return { success: true, couponsIssued, alreadySame: false };
+      }),
+
+    // 고객 문의 제출
+    submitInquiry: publicProcedure
+      .input(z.object({
+        memberId: z.number().optional(),
+        name: z.string().min(1).max(100),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        category: z.enum(["coupon", "membership", "points", "other"]).default("other"),
+        subject: z.string().min(1).max(200),
+        content: z.string().min(1),
+      }))
+      .mutation(async ({ input }) => {
+        await createInquiry(input);
+        return { success: true };
+      }),
+
+    // 회원 탈퇴
+    withdraw: publicProcedure
+      .input(z.object({
+        memberId: z.number(),
+        reason: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const member = await getMemberById(input.memberId);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
+        if (member.status === "withdrawn") throw new TRPCError({ code: "BAD_REQUEST", message: "이미 탈퇴한 회원입니다." });
+
+        // 마케팅 동의 철회 이력 저장
+        if (member.marketingConsent) {
+          await createConsentLog({
+            memberId: input.memberId,
+            consentType: "marketing_withdraw",
+            agreed: false,
+            consentContent: "회원 탈퇴로 인한 마케팅 수신 자동 철회",
+          });
+        }
+
+        // 상태 withdrawn 변경
+        await updateMember(input.memberId, {
+          status: "withdrawn",
+          marketingConsent: false,
+          notes: `[${new Date().toLocaleDateString("ko-KR")} 탈퇴] ${input.reason ?? "사유 미기재"} | 기존 메모: ${member.notes ?? "없음"}`
+        });
+
+        return { success: true };
       }),
   }),
 
@@ -1207,6 +1257,28 @@ export const appRouter = router({
       .input(z.object({ id: z.number() }))
       .mutation(async ({ input }) => {
         await deleteBranch(input.id);
+        return { success: true };
+      }),
+
+    // ─── 고객 문의 관리 ──────────────────────────────────────────────────
+    listInquiries: staffProcedure
+      .input(z.object({
+        status: z.enum(["pending", "answered", "closed"]).optional(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }))
+      .query(async ({ input }) => {
+        return listInquiries(input);
+      }),
+
+    replyInquiry: staffProcedure
+      .input(z.object({
+        id: z.number(),
+        adminReply: z.string().min(1),
+        status: z.enum(["answered", "closed"]).default("answered"),
+      }))
+      .mutation(async ({ input }) => {
+        await replyInquiry(input.id, input.adminReply, input.status);
         return { success: true };
       }),
 

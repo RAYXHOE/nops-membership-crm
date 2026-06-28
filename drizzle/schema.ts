@@ -205,3 +205,23 @@ export const points = mysqlTable("points", {
 
 export type Point = typeof points.$inferSelect;
 export type InsertPoint = typeof points.$inferInsert;
+
+// ─── Inquiries (고객 문의) ────────────────────────────────────────────────────
+export const inquiries = mysqlTable("inquiries", {
+  id: int("id").autoincrement().primaryKey(),
+  memberId: int("memberId"),
+  name: varchar("name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  phone: varchar("phone", { length: 20 }),
+  category: mysqlEnum("category", ["coupon", "membership", "points", "other"]).notNull().default("other"),
+  subject: varchar("subject", { length: 200 }).notNull(),
+  content: text("content").notNull(),
+  status: mysqlEnum("status", ["pending", "answered", "closed"]).notNull().default("pending"),
+  adminReply: text("adminReply"),
+  repliedAt: timestamp("repliedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Inquiry = typeof inquiries.$inferSelect;
+export type InsertInquiry = typeof inquiries.$inferInsert;
