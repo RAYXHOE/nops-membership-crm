@@ -155,7 +155,15 @@ function CouponView({ memberId }: { memberId: number }) {
   const copyCode = (code: string) => { navigator.clipboard.writeText(code); toast.success("쿠폰 코드가 복사되었습니다."); };
 
   const updateMarketingMutation = trpc.membership.updateMarketing.useMutation({
-    onSuccess: () => { toast.success("마케팅 수신이 철회되었습니다."); memberInfoQuery.refetch(); },
+    onSuccess: (_, variables) => {
+      if (variables.marketingConsent) {
+        toast.success("마케팅 동의가 완료되었습니다. 쿠폰이 발급되었습니다!");
+      } else {
+        toast.success("마케팅 수신이 철회되었습니다.");
+      }
+      memberInfoQuery.refetch();
+      couponsQuery.refetch();
+    },
     onError: (err) => toast.error(err.message),
   });
 
@@ -183,7 +191,7 @@ function CouponView({ memberId }: { memberId: number }) {
               <span className="text-sm font-bold text-primary">{((member as typeof member & { pointBalance?: number }).pointBalance ?? 0).toLocaleString()}원</span>
             </div>
           )}
-          {member.marketingConsent && (
+          {member.marketingConsent ? (
             <div className="flex items-center justify-between py-3 border-t border-border/30">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -199,6 +207,31 @@ function CouponView({ memberId }: { memberId: number }) {
               >
                 수신 철회
               </button>
+            </div>
+          ) : (
+            <div className="mt-4 p-4 rounded-xl bg-amber-50 border border-amber-200">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <Gift className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-amber-800 mb-1">마케팅 동의 시 쿠폰 추가 발급!</p>
+                  <p className="text-xs text-amber-700 leading-relaxed mb-3">
+                    마케팅 정보 수신에 동의하시면 <strong>10% 할인 쿠폰</strong>과 <strong>생일 15% 쿠폰</strong>을 즉시 발급해 드립니다.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (confirm("마케팅 정보 수신에 동의하시겠습니까?\n\n• 10% 할인 쿠폰 즉시 발급\n• 생일 15% 쿠폰 즉시 발급\n• 신메뉴 안내 및 이벤트 정보 수신")) {
+                        updateMarketingMutation.mutate({ memberId, marketingConsent: true });
+                      }
+                    }}
+                    disabled={updateMarketingMutation.isPending}
+                    className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {updateMarketingMutation.isPending ? "저리 중..." : "동의하고 쿠폰 받기"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
           <AnniversarySection memberId={memberId} current={(member as typeof member & { anniversaryDate?: string | null }).anniversaryDate ?? null} onUpdated={() => memberInfoQuery.refetch()} />
