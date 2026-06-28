@@ -812,6 +812,20 @@ export async function earnPoints(memberId: number, purchaseAmount: number, purch
 
   // 잔액 업데이트
   await db.update(members).set({ pointBalance: newBalance }).where(eq(members.id, memberId));
+
+  // 적립금 알림톡 발송 (비동기, 실패 시 무시)
+  if (member.phone) {
+    import("./kakao").then(({ sendPointsAlimtalk }) => {
+      sendPointsAlimtalk({
+        to: member.phone!,
+        name: member.name ?? "고객",
+        earnedAmount: earnAmount,
+        balance: newBalance,
+        expiresAt,
+      }).catch((err) => console.error("[적립금 알림톡] 발송 실패:", err));
+    }).catch(() => {});
+  }
+
   return { earned: earnAmount, newBalance };
 }
 

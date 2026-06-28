@@ -17,6 +17,7 @@ const TEMPLATE_WELCOME = process.env.SOLAPI_TEMPLATE_WELCOME ?? "";
 const TEMPLATE_EXPIRY = process.env.SOLAPI_TEMPLATE_EXPIRY ?? "";
 const TEMPLATE_ANNIVERSARY = process.env.SOLAPI_TEMPLATE_ANNIVERSARY ?? "";
 const TEMPLATE_CORKAGE = process.env.SOLAPI_TEMPLATE_CORKAGE ?? "";
+const TEMPLATE_POINTS = process.env.SOLAPI_TEMPLATE_POINTS ?? "";
 
 // 전화번호 정규화 (하이픈 제거)
 function normalizePhone(phone: string): string {
@@ -205,6 +206,40 @@ export async function sendCorkageReissueAlimtalk(opts: {
   } catch (err) {
     console.error(`[Kakao] Failed to send corkage reissue alimtalk to ${opts.to}:`, err);
     await createAlimtalkLog({ type: "corkage", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_CORKAGE || TEMPLATE_EXPIRY, status: "failed", errorMessage: String(err) });
+    return { success: false, error: String(err) };
+  }
+}
+
+// ─── 적립금 적립 알림톡 ────────────────────────────────────────────────────────
+export async function sendPointsAlimtalk(opts: {
+  to: string;
+  name: string;
+  earnedAmount: number;
+  balance: number;
+  expiresAt: Date;
+}) {
+  try {
+    const client = getSolapiClient();
+    await client.send({
+      to: normalizePhone(opts.to),
+      from: normalizePhone(SENDER),
+      kakaoOptions: {
+        pfId: PFID,
+        templateId: TEMPLATE_POINTS,
+        variables: {
+          "#{이름}": opts.name,
+          "#{적립금액}": opts.earnedAmount.toLocaleString("ko-KR"),
+          "#{잔액}": opts.balance.toLocaleString("ko-KR"),
+          "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
+        },
+      },
+    } as Parameters<typeof client.send>[0]);
+    console.log(`[Kakao] Points alimtalk sent to ${opts.to}`);
+    await createAlimtalkLog({ type: "points", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_POINTS, status: "success" });
+    return { success: true };
+  } catch (err) {
+    console.error(`[Kakao] Failed to send points alimtalk to ${opts.to}:`, err);
+    await createAlimtalkLog({ type: "points", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_POINTS, status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }
