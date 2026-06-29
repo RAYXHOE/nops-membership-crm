@@ -812,6 +812,62 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // ─── 체크인 통합 처리 (1회 저장으로 방문+구매+쿠폰+적립금) ────────────────────────────────
+    checkin: branchAdminProcedure
+      .input(z.object({
+        memberId: z.number(),
+        partySize: z.number().min(1).default(1),
+        visitNotes: z.string().optional(),
+        // 구매 정보 (선택 - 없으면 방문만 기록)
+        amount: z.number().positive().optional(),
+        discountAmount: z.number().min(0).default(0).optional(),
+        finalAmount: z.number().positive().optional(),
+        couponId: z.number().optional(),
+        purchaseMemo: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const now = new Date();
+        const staffBranchCode = (ctx.user as typeof ctx.user & { branchCode?: string | null }).branchCode ?? null;
+
+        // 1. 방문 기록
+        await createVisit({
+          memberId: input.memberId,
+          visitedAt: now,
+          partySize: input.partySize,
+          notes: input.visitNotes,
+          recordedByStaffId: ctx.user.id,
+        });
+
+        // 2. 쿠폰 사용 처리 (쿠폰 선택된 경우)
+        if (input.couponId) {
+          await useCoupon(input.couponId, ctx.user.id, "체크인 쿠폰 사용", staffBranchCode);
+        }
+
+        // 3. 구매 이력 + 적립금 (결제 금액 입력된 경우)
+        if (input.amount && input.finalAmount) {
+          await createPurchase({
+            memberId: input.memberId,
+            amount: String(input.amount),
+            discountAmount: String(input.discountAmount ?? 0),
+            finalAmount: String(input.finalAmount),
+            couponId: input.couponId,
+            memo: input.purchaseMemo,
+            purchasedAt: now,
+            recordedByStaffId: ctx.user.id,
+          });
+          // 적립금 자동 적립
+          try {
+            const purchases = await getPurchasesByMemberId(input.memberId);
+            const latest = purchases[0];
+            if (latest) await earnPoints(input.memberId, input.finalAmount, latest.id);
+          } catch (err) {
+            console.error("[체크인 적립금] 자동 적립 실패:", err);
+          }
+        }
+
+        return { success: true };
+      }),
+
     updateVisit: branchAdminProcedure
       .input(
         z.object({
