@@ -183,10 +183,12 @@ export async function listCouponTemplates() {
 export async function getCouponTemplateByType(type: "discount_percent" | "corkage_free" | "birthday" | "anniversary" | "employee") {
   const db = await getDb();
   if (!db) return undefined;
+  // MySQL tinyint(1) boolean 호환: ne(isActive, 0) 방식으로 비교
+  const { ne } = await import("drizzle-orm");
   const result = await db
     .select()
     .from(couponTemplates)
-    .where(and(eq(couponTemplates.type, type), eq(couponTemplates.isActive, true)))
+    .where(and(eq(couponTemplates.type, type), ne(couponTemplates.isActive, false)))
     .limit(1);
   return result[0];
 }
