@@ -268,22 +268,7 @@ export const appRouter = router({
             });
           }
 
-          // 생일 쿠폰 즉시 발급 (올해분)
-          if (birthdayTemplate) {
-            const expiresAt = new Date(now);
-            expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
-            await issueCoupon({
-              memberId: member.id,
-              templateId: birthdayTemplate.id,
-              code: generateCouponCode("BDAY"),
-              type: "birthday",
-              discountPercent: birthdayTemplate.discountPercent,
-              name: birthdayTemplate.name,
-              description: "마케팅 동의 감사 혜택 · " + (birthdayTemplate.description ?? ""),
-              expiresAt,
-              birthdayYear: now.getFullYear(),
-            });
-          }
+          // 생일 쿠폰은 매월 1일 스케줄러에서 생일 당월에 자동 발급 (register 시 즉시 발급 안 함)
         }
 
         // 발급된 쿠폰 목록 조회
@@ -474,23 +459,7 @@ export const appRouter = router({
             couponsIssued++;
           }
 
-          // 생일 쿠폰 (올해 미발급인 경우만)
-          if (!hasBirthday && birthdayTemplate) {
-            const expiresAt = new Date(now);
-            expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
-            await issueCoupon({
-              memberId: input.memberId,
-              templateId: birthdayTemplate.id,
-              code: generateCouponCode("BDAY"),
-              type: "birthday",
-              discountPercent: birthdayTemplate.discountPercent,
-              name: birthdayTemplate.name,
-              description: "마케팅 동의 감사 혜택 · " + (birthdayTemplate.description ?? ""),
-              expiresAt,
-              birthdayYear: now.getFullYear(),
-            });
-            couponsIssued++;
-          }
+          // 생일 쿠폰은 매월 1일 스케줄러에서 생일 당월에 자동 발급 (즉시 발급 안 함)
         }
 
         return { success: true, couponsIssued, alreadySame: false };
