@@ -366,3 +366,92 @@ export async function expirePointsHandler(req: Request, res: Response) {
     return res.status(500).json({ error: String(err), timestamp: new Date().toISOString() });
   }
 }
+
+/**
+ * POST /api/scheduled/check-missing-coupons
+ * 매일 오전 8시(KST) = UTC 23:00 실행
+ * 마케팅 동의 회원 중 10% 할인 쿠폰 미발급 회원 감지 → 자동 보정 발급 + 운영자 알림
+ */
+export async function checkMissingCouponsHandler(req: Request, res: Response) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user.isCron) {
+      return res.status(403).json({ error: "cron-only endpoint" });
+    }
+
+    const { getDb } = await import("./db");
+    const { members, coupons } = await import("../drizzle/schema");
+    const { and, eq, not, exists } = await import("drizzle-orm");
+    const { notifyOwner } = await import("./_core/notification");
+    const db = await getDb();
+    if (!db) return res.status(500).json({ error: "DB not available" });
+
+    // 마케팅 동의 + discount_percent 쿠폰 미발급 회원 조회
+    const missingMembers = await db
+      .select({ id: members.id, name: members.name, email: members.email })
+      .from(members)
+      .where(
+        and(
+          eq(members.marketingConsent, true),
+          eq(members.status, "active"),
+          not(
+            exists(
+              db.select({ id: coupons.id })
+                .from(coupons)
+                .where(and(eq(coupons.memberId, members.id), eq(coupons.type, "discount_percent")))
+            )
+          )
+        )
+      );
+
+    if (missingMembers.length === 0) {
+      console.log("[MissingCoupons] 미발급 회원 없음");
+      return res.json({ ok: true, issued: 0 });
+    }
+
+    // 자동 보정 발급
+    const template = await getCouponTemplateByType("discount_percent");
+    if (!template) {
+      await notifyOwner({
+        title: "[NOPS CRM] 쿠폰 템플릿 오류",
+        content: `discount_percent 쿠폰 템플릿을 찾을 수 없습니다. 관리자 확인이 필요합니다.`,
+      });
+      return res.status(500).json({ error: "template not found" });
+    }
+
+    const now = new Date();
+    let issued = 0;
+    const issuedNames: string[] = [];
+
+    for (const member of missingMembers) {
+      const expiresAt = new Date(now);
+      expiresAt.setDate(expiresAt.getDate() + template.validDays);
+      const code = `NOPS-${Array.from({ length: 8 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("")}`;
+      await issueCoupon({
+        memberId: member.id,
+        templateId: template.id,
+        code,
+        type: "discount_percent",
+        name: template.name,
+        discountPercent: template.discountPercent,
+        description: "자동 보정 발급 · " + (template.description ?? ""),
+        status: "active",
+        expiresAt,
+      });
+      issuedNames.push(`${member.name}(${member.email})`);
+      issued++;
+    }
+
+    // 운영자 알림 발송
+    await notifyOwner({
+      title: `[NOPS CRM] 쿠폰 미발급 ${issued}건 자동 보정 완료`,
+      content: `마케팅 동의 회원 중 10% 할인 쿠폰 미발급 ${issued}명을 감지하여 자동 발급했습니다.\n\n대상: ${issuedNames.join(", ")}`,
+    });
+
+    console.log(`[MissingCoupons] 자동 보정 발급: ${issued}명 — ${issuedNames.join(", ")}`);
+    return res.json({ ok: true, issued, members: issuedNames });
+  } catch (err) {
+    console.error("[MissingCoupons] Error:", err);
+    return res.status(500).json({ error: String(err) });
+  }
+}
