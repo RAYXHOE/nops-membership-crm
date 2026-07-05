@@ -256,16 +256,24 @@ export const appRouter = router({
           if (discountTemplate) {
             const expiresAt = new Date(now);
             expiresAt.setDate(expiresAt.getDate() + discountTemplate.validDays);
-            await issueCoupon({
-              memberId: member.id,
-              templateId: discountTemplate.id,
-              code: generateCouponCode("NOPS"),
-              type: "discount_percent",
-              discountPercent: discountTemplate.discountPercent,
-              name: discountTemplate.name,
-              description: "마케팅 동의 감사 혜택 · " + (discountTemplate.description ?? ""),
-              expiresAt,
-            });
+            try {
+              await issueCoupon({
+                memberId: member.id,
+                templateId: discountTemplate.id,
+                code: generateCouponCode("NOPS"),
+                type: "discount_percent",
+                discountPercent: discountTemplate.discountPercent,
+                name: discountTemplate.name,
+                description: "마케팅 동의 감사 혜택 · " + (discountTemplate.description ?? ""),
+                expiresAt,
+              });
+              console.log(`[Register] 10% 할인 쿠폰 발급 성공: memberId=${member.id}`);
+            } catch (couponErr) {
+              console.error(`[Register] ⚠️ 10% 할인 쿠폰 발급 실패: memberId=${member.id}`, couponErr);
+              // 쿠폰 발급 실패해도 가입은 성공 유지, check-missing-coupons 스케줄러가 보정함
+            }
+          } else {
+            console.error(`[Register] ⚠️ discount_percent 템플릿을 찾을 수 없음: memberId=${member.id}, marketingConsent=true`);
           }
 
           // 생일 쿠폰은 매월 1일 스케줄러에서 생일 당월에 자동 발급 (register 시 즉시 발급 안 함)
