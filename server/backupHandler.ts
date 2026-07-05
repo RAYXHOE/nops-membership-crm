@@ -13,6 +13,7 @@ import { createCipheriv, randomBytes } from "crypto";
 import { createReadStream, createWriteStream, unlinkSync, statSync, existsSync } from "fs";
 import { pipeline } from "stream/promises";
 import { createGzip } from "zlib";
+import { sendBackupNotificationEmail } from "./email";
 
 export async function dbBackupHandler(req: Request, res: Response) {
   try {
@@ -163,6 +164,16 @@ export async function dbBackupHandler(req: Request, res: Response) {
 
     console.log(`[DB Backup] 완료: ${backupKey}`);
 
+    // 성공 이메일 알림 (비동기)
+    sendBackupNotificationEmail({
+      success: true,
+      backupKey,
+      rowCounts,
+      dumpSizeKB: Math.round(dumpSize / 1024),
+      encryptedSizeKB: Math.round(encSize / 1024),
+      timestamp: now.toISOString(),
+    }).catch((e) => console.error("[DB Backup] 알림 이메일 실패:", e));
+
     return res.json({
       ok: true,
       backupKey,
@@ -179,6 +190,14 @@ export async function dbBackupHandler(req: Request, res: Response) {
     try { if (existsSync(dumpFile)) unlinkSync(dumpFile); } catch {}
     try { if (existsSync(encFile)) unlinkSync(encFile); } catch {}
     console.error("[DB Backup] 오류:", err);
+
+    // 실패 이메일 알림 (비동기)
+    sendBackupNotificationEmail({
+      success: false,
+      error: String(err),
+      timestamp: new Date().toISOString(),
+    }).catch((e) => console.error("[DB Backup] 실패 알림 이메일 오류:", e));
+
     return res.status(500).json({ error: String(err), timestamp: new Date().toISOString() });
   }
 }

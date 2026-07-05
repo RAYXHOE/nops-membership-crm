@@ -461,3 +461,65 @@ export async function validateResendApiKey(): Promise<boolean> {
     return false;
   }
 }
+
+// ─── DB 백업 알림 이메일 ──────────────────────────────────────────────────────
+export async function sendBackupNotificationEmail(opts: {
+  success: boolean;
+  backupKey?: string;
+  rowCounts?: Record<string, number>;
+  dumpSizeKB?: number;
+  encryptedSizeKB?: number;
+  error?: string;
+  timestamp: string;
+}) {
+  const ownerEmail = process.env.OWNER_EMAIL || "spvltm@gmail.com";
+  const statusIcon = opts.success ? "✅" : "❌";
+  const statusText = opts.success ? "성공" : "실패";
+
+  const rowCountsHtml = opts.rowCounts
+    ? Object.entries(opts.rowCounts)
+        .map(([t, c]) => `<tr><td style="padding:4px 12px;border-bottom:1px solid #f0f0f0;">${t}</td><td style="padding:4px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">${c}</td></tr>`)
+        .join("")
+    : "";
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: ownerEmail,
+      subject: `[NOPS CRM] DB 백업 ${statusText} ${statusIcon} — ${opts.timestamp.slice(0, 10)}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; background: #f7f7f7; padding: 24px;">
+          <div style="background: ${opts.success ? '#1a1a1a' : '#c0392b'}; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+            <h2 style="color: #fff; margin: 0; font-size: 16px;">NOPS CRM — DB 백업 ${statusText} ${statusIcon}</h2>
+            <p style="color: #ccc; margin: 4px 0 0; font-size: 12px;">${opts.timestamp}</p>
+          </div>
+          <div style="background: #fff; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0; border-top: none;">
+            ${opts.success ? `
+              <p style="color: #27ae60; font-weight: bold; margin: 0 0 16px;">백업이 정상적으로 완료되었습니다.</p>
+              <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:16px;">
+                <tr style="background:#f5f5f5;"><th style="padding:6px 12px;text-align:left;">항목</th><th style="padding:6px 12px;text-align:right;">값</th></tr>
+                <tr><td style="padding:4px 12px;border-bottom:1px solid #f0f0f0;">백업 파일</td><td style="padding:4px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-size:11px;">${opts.backupKey || '-'}</td></tr>
+                <tr><td style="padding:4px 12px;border-bottom:1px solid #f0f0f0;">덤프 크기</td><td style="padding:4px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">${opts.dumpSizeKB || 0} KB</td></tr>
+                <tr><td style="padding:4px 12px;">암호화 후 크기</td><td style="padding:4px 12px;text-align:right;">${opts.encryptedSizeKB || 0} KB</td></tr>
+              </table>
+              ${rowCountsHtml ? `
+              <p style="font-size:13px; font-weight:bold; margin:0 0 8px;">테이블별 행 수:</p>
+              <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <tr style="background:#f5f5f5;"><th style="padding:4px 12px;text-align:left;">테이블</th><th style="padding:4px 12px;text-align:right;">행 수</th></tr>
+                ${rowCountsHtml}
+              </table>` : ''}
+            ` : `
+              <p style="color: #e74c3c; font-weight: bold; margin: 0 0 16px;">⚠️ 백업 중 오류가 발생했습니다. 즉시 확인이 필요합니다.</p>
+              <div style="background: #fff5f5; border: 1px solid #fcc; border-radius: 6px; padding: 12px; font-size: 13px; color: #c0392b;">
+                ${opts.error || '알 수 없는 오류'}
+              </div>
+            `}
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] 백업 알림 이메일 발송: ${ownerEmail}`);
+  } catch (err) {
+    console.error("[Email] 백업 알림 이메일 발송 실패:", err);
+  }
+}
