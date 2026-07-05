@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler, corkageReissueHandler, cleanupExpiredOtpsHandler, expirePointsHandler, checkMissingCouponsHandler } from "../scheduledHandlers";
+import { dbBackupHandler } from "../backupHandler";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -45,6 +46,7 @@ async function startServer() {
   app.post("/api/scheduled/cleanup-expired-otps", cleanupExpiredOtpsHandler);
   app.post("/api/scheduled/expire-points", expirePointsHandler);
   app.post("/api/scheduled/check-missing-coupons", checkMissingCouponsHandler);
+  app.post("/api/scheduled/db-backup", dbBackupHandler);
 
   // tRPC API
   app.use(
