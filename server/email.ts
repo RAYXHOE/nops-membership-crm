@@ -402,6 +402,56 @@ export async function sendOtpEmail({
   });
 }
 
+// ─── 고객 문의 답변 이메일 ──────────────────────────────────────────────────────
+export async function sendInquiryReplyEmail(opts: {
+  to: string;
+  name: string;
+  subject: string;
+  originalContent: string;
+  adminReply: string;
+}) {
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: opts.to,
+      subject: `[NOPS Steak House] 문의 답변: ${opts.subject}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+          <div style="background: #1a1a1a; padding: 32px; text-align: center; border-radius: 12px 12px 0 0;">
+            <p style="color: #c9a84c; font-size: 11px; letter-spacing: 0.2em; margin: 0 0 8px;">EXCLUSIVE MEMBERSHIP</p>
+            <h1 style="color: #ffffff; font-size: 22px; margin: 0;">NOPS Steak House</h1>
+          </div>
+          <div style="background: #ffffff; padding: 32px; border-radius: 0 0 12px 12px; border: 1px solid #e5e5e5; border-top: none;">
+            <p style="color: #c9a84c; font-size: 12px; letter-spacing: 0.15em; margin: 0 0 8px;">INQUIRY REPLY</p>
+            <h2 style="font-size: 18px; margin: 0 0 8px;">${opts.name}님, 문의 답변이 도착했습니다</h2>
+            <p style="color: #666; font-size: 14px; margin: 0 0 24px;">문의하신 내용에 대한 답변을 안내드립니다.</p>
+            <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+              <p style="font-size: 11px; color: #999; margin: 0 0 6px;">문의 내용</p>
+              <p style="font-size: 13px; color: #555; margin: 0; line-height: 1.6; white-space: pre-wrap;">${opts.originalContent}</p>
+            </div>
+            <div style="background: #fff8f0; border: 1px solid #f0d9b5; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              <p style="font-size: 11px; color: #c9a84c; margin: 0 0 6px; font-weight: bold;">관리자 답변</p>
+              <p style="font-size: 14px; color: #333; margin: 0; line-height: 1.7; white-space: pre-wrap;">${opts.adminReply}</p>
+            </div>
+            <a href="https://membership.nops.kr/mypage" style="display: block; background: #1a1a1a; color: #ffffff; text-align: center; padding: 14px; border-radius: 8px; text-decoration: none; font-size: 14px;">
+              마이페이지 바로가기 →
+            </a>
+            <p style="text-align: center; color: #999; font-size: 11px; margin-top: 24px;">
+              NOPS Steak House<br>
+              본 메일은 발신 전용입니다. 추가 문의는 마이페이지를 이용해 주세요.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Inquiry reply sent to ${opts.to}`);
+    return { success: true };
+  } catch (err) {
+    console.error(`[Email] Failed to send inquiry reply to ${opts.to}:`, err);
+    return { success: false };
+  }
+}
+
 // API 키 유효성 검증용
 export async function validateResendApiKey(): Promise<boolean> {
   try {

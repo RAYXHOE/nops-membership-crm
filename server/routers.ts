@@ -1303,7 +1303,29 @@ export const appRouter = router({
         status: z.enum(["answered", "closed"]).default("answered"),
       }))
       .mutation(async ({ input }) => {
+        // 답변 저장 전 문의 정보 조회
+        const { inquiries } = await import("../drizzle/schema");
+        const { getDb: getDbFn } = await import("./db");
+        const { eq: eqFn } = await import("drizzle-orm");
+        const dbInst = await getDbFn();
+        const inquiryRows = dbInst ? await dbInst.select().from(inquiries).where(eqFn(inquiries.id, input.id)).limit(1) : [];
+        const inquiry = inquiryRows[0];
+
         await replyInquiry(input.id, input.adminReply, input.status);
+
+        // 답변 이메일 자동 발송 (비동기, 실패 시 무시)
+        if (inquiry) {
+          import("./email").then(({ sendInquiryReplyEmail }) => {
+            sendInquiryReplyEmail({
+              to: inquiry.email,
+              name: inquiry.name,
+              subject: inquiry.subject,
+              originalContent: inquiry.content,
+              adminReply: input.adminReply,
+            }).catch((err) => console.error("[문의 답변 이메일] 발송 실패:", err));
+          }).catch(() => {});
+        }
+
         return { success: true };
       }),
 
