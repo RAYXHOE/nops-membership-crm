@@ -381,7 +381,7 @@ export async function checkMissingCouponsHandler(req: Request, res: Response) {
 
     const { getDb } = await import("./db");
     const { members, coupons } = await import("../drizzle/schema");
-    const { and, eq, not, exists } = await import("drizzle-orm");
+    const { and, eq, not, exists, ne } = await import("drizzle-orm");
     const { notifyOwner } = await import("./_core/notification");
     const db = await getDb();
     if (!db) return res.status(500).json({ error: "DB not available" });
@@ -394,13 +394,17 @@ export async function checkMissingCouponsHandler(req: Request, res: Response) {
         and(
           eq(members.marketingConsent, true),
           eq(members.status, "active"),
-          not(
-            exists(
-              db.select({ id: coupons.id })
-                .from(coupons)
-                .where(and(eq(coupons.memberId, members.id), eq(coupons.type, "discount_percent")))
-            )
-          )
+      not(
+        exists(
+          db.select({ id: coupons.id })
+            .from(coupons)
+            .where(and(
+              eq(coupons.memberId, members.id),
+              eq(coupons.type, "discount_percent"),
+              ne(coupons.status, "expired")
+            ))
+        )
+      )
         )
       );
 
