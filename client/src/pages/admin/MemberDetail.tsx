@@ -17,6 +17,7 @@ import {
   Coins,
   TrendingUp,
   Minus,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,41 @@ export default function AdminMemberDetail() {
   const pointsQuery = trpc.admin.getPointsByMember.useQuery({ memberId });
   const [usePointsOpen, setUsePointsOpen] = useState(false);
   const [usePointsAmount, setUsePointsAmount] = useState("10000");
+
+  const downloadVisitsExcel = async () => {
+    const visits = visitsQuery.data;
+    if (!visits || visits.length === 0) { toast.error("다운로드할 방문 기록이 없습니다."); return; }
+    const XLSX = await import("xlsx");
+    const rows = visits.map((v) => ({
+      방문일시: new Date(v.visitedAt).toLocaleString("ko-KR"),
+      인원: v.partySize ?? "",
+      메모: v.notes ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{wch:20},{wch:8},{wch:40}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "방문기록");
+    XLSX.writeFile(wb, `NOPS_방문기록_${member?.name ?? memberId}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const downloadPurchasesExcel = async () => {
+    const purchases = purchasesQuery.data;
+    if (!purchases || purchases.length === 0) { toast.error("다운로드할 구매 이력이 없습니다."); return; }
+    const XLSX = await import("xlsx");
+    const rows = purchases.map((p) => ({
+      구매일시: new Date(p.purchasedAt).toLocaleString("ko-KR"),
+      결제금액: p.amount,
+      할인금액: p.discountAmount ?? 0,
+      실결제금액: p.finalAmount,
+      적립금: Math.floor(Number(p.finalAmount) * 0.03),
+      메모: p.memo ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{wch:20},{wch:12},{wch:12},{wch:12},{wch:10},{wch:30}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "구매이력");
+    XLSX.writeFile(wb, `NOPS_구매이력_${member?.name ?? memberId}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
   const usePointsMutation = trpc.admin.usePoints.useMutation({
     onSuccess: (data) => {
       pointsQuery.refetch();
@@ -248,7 +284,12 @@ export default function AdminMemberDetail() {
             <div className="bg-card rounded-2xl border border-border/50 p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-sm font-semibold text-foreground">방문 기록</h2>
-                <Dialog open={visitOpen} onOpenChange={setVisitOpen}>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadVisitsExcel}>
+                    <Download className="w-3.5 h-3.5" />
+                    엑셀
+                  </Button>
+                  <Dialog open={visitOpen} onOpenChange={setVisitOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1.5">
                       <Plus className="w-3.5 h-3.5" />
@@ -304,6 +345,7 @@ export default function AdminMemberDetail() {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
 
               {visitsQuery.data?.length === 0 ? (
@@ -339,7 +381,12 @@ export default function AdminMemberDetail() {
             <div className="bg-card rounded-2xl border border-border/50 p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-sm font-semibold text-foreground">구매 이력</h2>
-                <Dialog open={purchaseOpen} onOpenChange={setPurchaseOpen}>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadPurchasesExcel}>
+                    <Download className="w-3.5 h-3.5" />
+                    엑셀
+                  </Button>
+                  <Dialog open={purchaseOpen} onOpenChange={setPurchaseOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1.5">
                       <Plus className="w-3.5 h-3.5" />
@@ -421,6 +468,7 @@ export default function AdminMemberDetail() {
                     </div>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
 
               {purchasesQuery.data?.length === 0 ? (
