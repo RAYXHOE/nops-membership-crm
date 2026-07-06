@@ -66,12 +66,18 @@ async function startServer() {
         .where(and(eq(coupons.memberId, member.id), eq(coupons.status, "active")))
         .orderBy(desc(coupons.issuedAt)).limit(3);
       const { sendWelcomeAlimtalk } = await import("../kakao");
-      await sendWelcomeAlimtalk({
+      const alimtalkResult = await sendWelcomeAlimtalk({
         to: member.phone,
         name: member.name,
         coupons: couponRows.map(c => ({ name: c.name, code: c.code })),
       });
-      return res.json({ ok: true, member: member.name, phone: member.phone, coupons: couponRows.length });
+      return res.json({
+        ok: true,
+        member: member.name,
+        phone: member.phone,
+        coupons: couponRows.map(c => ({ name: c.name, code: c.code })),
+        alimtalk: alimtalkResult,
+      });
     } catch (err) {
       console.error("[Test Alimtalk]", err);
       return res.status(500).json({ error: String(err) });
