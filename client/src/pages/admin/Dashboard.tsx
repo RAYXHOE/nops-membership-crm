@@ -27,31 +27,44 @@ function StatCard({
   sub,
   icon: Icon,
   trend,
+  href,
 }: {
   title: string;
   value: string | number;
   sub?: string;
   icon: React.ElementType;
   trend?: string;
+  href?: string;
 }) {
-  return (
-    <div className="bg-card rounded-2xl border border-border/50 p-6 hover:shadow-md transition-shadow">
+  const inner = (
+    <div className={`bg-card rounded-2xl border border-border/50 p-6 transition-all ${
+      href ? "hover:shadow-md hover:border-primary/30 cursor-pointer group" : "hover:shadow-md"
+    }`}>
       <div className="flex items-start justify-between mb-4">
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
           <Icon className="w-5 h-5 text-primary" />
         </div>
-        {trend && (
-          <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-            <ArrowUpRight className="w-3 h-3" />
-            {trend}
-          </span>
-        )}
+        <div className="flex items-center gap-1">
+          {trend && (
+            <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+              <ArrowUpRight className="w-3 h-3" />
+              {trend}
+            </span>
+          )}
+          {href && (
+            <span className="text-xs text-primary/50 group-hover:text-primary transition-colors">
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </span>
+          )}
+        </div>
       </div>
       <p className="text-2xl font-bold text-foreground mb-1">{value}</p>
       <p className="text-sm text-muted-foreground">{title}</p>
       {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
+  if (href) return <Link href={href}>{inner}</Link>;
+  return inner;
 }
 
 export default function AdminDashboard() {
@@ -93,24 +106,28 @@ export default function AdminDashboard() {
             value={ms?.total ?? "—"}
             sub={`활성 ${ms?.active ?? 0}명`}
             icon={Users}
+            href="/admin/members"
           />
           <StatCard
             title="마케팅 동의"
             value={ms ? `${ms.marketingConsented}명` : "—"}
             sub={ms ? `${Math.round((ms.marketingConsented / (ms.total || 1)) * 100)}%` : ""}
             icon={Percent}
+            href="/admin/members"
           />
           <StatCard
             title="발급 쿠폰"
             value={cs?.total ?? "—"}
             sub={`사용률 ${cs?.usageRate ?? 0}%`}
             icon={Tag}
+            href="/admin/coupons"
           />
           <StatCard
             title="총 매출"
             value={ps ? `₩${Number(ps.totalAmount).toLocaleString()}` : "—"}
             sub={`${ps?.totalCount ?? 0}건`}
             icon={TrendingUp}
+            href="/admin/analytics"
           />
         </div>
 
