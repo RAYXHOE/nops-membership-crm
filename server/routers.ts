@@ -156,27 +156,45 @@ export const appRouter = router({
           });
         }
 
-        // 중복 이메일 체크
+        // 중복 이메일 체크 (탈퇴 회원 포함)
         const existing = await getMemberByEmail(input.email);
         if (existing) {
+          if (existing.status === "withdrawn") {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "탈퇴한 이력이 있는 이메일입니다. 재가입을 원하시면 매장으로 문의해 주세요.",
+            });
+          }
           throw new TRPCError({
             code: "CONFLICT",
-            message: "이미 가입된 이메일입니다.",
+            message: "이미 가입된 이메일입니다. 마이페이지에서 쿠폰을 확인해 주세요.",
           });
         }
 
-        // 동일 전화번호 중복 체크 (다른 이메일로 재가입 방지)
+        // 동일 전화번호 중복 체크 (탈퇴 회원 포함)
         const existingByPhone = await getMemberByPhone(input.phone);
         if (existingByPhone) {
+          if (existingByPhone.status === "withdrawn") {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "탈퇴한 이력이 있는 전화번호입니다. 재가입을 원하시면 매장으로 문의해 주세요.",
+            });
+          }
           throw new TRPCError({
             code: "CONFLICT",
-            message: "이미 해당 전화번호로 가입된 계정이 있습니다. 기존 계정으로 마이페이지를 이용해 주세요.",
+            message: "이미 해당 전화번호로 가입된 계정이 있습니다. 마이페이지에서 쿠폰을 확인해 주세요.",
           });
         }
 
         // 이름+전화번호 중복 체크
         const existingByNamePhone = await getMemberByNameAndPhone(input.name, input.phone);
         if (existingByNamePhone) {
+          if (existingByNamePhone.status === "withdrawn") {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "탈퇴한 이력이 있는 회원입니다. 재가입을 원하시면 매장으로 문의해 주세요.",
+            });
+          }
           throw new TRPCError({
             code: "CONFLICT",
             message: "동일한 이름과 전화번호로 이미 가입된 계정이 있습니다.",
