@@ -48,6 +48,36 @@ async function startServer() {
   app.post("/api/scheduled/check-missing-coupons", checkMissingCouponsHandler);
   app.post("/api/scheduled/db-backup", dbBackupHandler);
 
+  // 테스트 알림톡 발송 (관리자 전용)
+  app.post("/api/admin/test-alimtalk", async (req, res) => {
+    try {
+      const { memberName } = req.body as { memberName?: string };
+      if (!memberName) return res.status(400).json({ error: "memberName 필요" });
+      const { getDb } = await import("../db");
+      const { members, coupons } = await import("../../drizzle/schema");
+      const { like, eq, and, desc } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) return res.status(500).json({ error: "DB 연결 실패" });
+      const memberRows = await db.select().from(members)
+        .where(and(like(members.name, `%${memberName}%`), eq(members.status, "active"))).limit(1);
+      const member = memberRows[0];
+      if (!member) return res.status(404).json({ error: `${memberName} 회원 없음` });
+      const couponRows = await db.select().from(coupons)
+        .where(and(eq(coupons.memberId, member.id), eq(coupons.status, "active")))
+        .orderBy(desc(coupons.issuedAt)).limit(3);
+      const { sendWelcomeAlimtalk } = await import("../kakao");
+      await sendWelcomeAlimtalk({
+        to: member.phone,
+        name: member.name,
+        coupons: couponRows.map(c => ({ name: c.name, code: c.code })),
+      });
+      return res.json({ ok: true, member: member.name, phone: member.phone, coupons: couponRows.length });
+    } catch (err) {
+      console.error("[Test Alimtalk]", err);
+      return res.status(500).json({ error: String(err) });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",
