@@ -5,8 +5,8 @@
 
 @theme inline {
   /* ─── NOPS Burgundy Palette (#800020) ───────────────────────────────── */
-  /* Background: #F9F8F6 warm white */
-  --color-background: oklch(0.985 0.004 75);
+  /* Background: pure white */
+  --color-background: oklch(1 0 0);
   /* Foreground: dark charcoal */
   --color-foreground: oklch(0.18 0.01 30);
 
