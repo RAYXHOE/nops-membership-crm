@@ -63,6 +63,8 @@ function AnniversarySection({ memberId, current, onUpdated }: { memberId: number
   };
 
   const displayDate = current ? new Date(current).toLocaleDateString("ko-KR", { month: "long", day: "numeric" }) : null;
+  // 이미 등록된 경우 수정 불가 (최초 입력 1회만 허용)
+  const isLocked = !!current;
 
   return (
     <div className="flex items-center justify-between py-3 border-t border-border/30">
@@ -76,16 +78,19 @@ function AnniversarySection({ memberId, current, onUpdated }: { memberId: number
             <p className="text-sm font-medium text-foreground">{displayDate ?? <span className="text-muted-foreground text-xs">미등록</span>}</p>
           )}
           {!editing && !current && <p className="text-xs text-muted-foreground mt-0.5">등록 시 매년 15% 할인 쿠폰 발급</p>}
+          {isLocked && <p className="text-xs text-muted-foreground mt-0.5">가입 후 수정 불가</p>}
         </div>
       </div>
       <div className="flex items-center gap-1">
-        {editing ? (
-          <>
-            <button onClick={handleSave} disabled={updateMutation.isPending} className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"><Check className="w-4 h-4 text-primary" /></button>
-            <button onClick={() => { setInput(current ?? ""); setEditing(false); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="w-4 h-4 text-muted-foreground" /></button>
-          </>
-        ) : (
-          <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg hover:bg-muted transition-colors"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
+        {!isLocked && (
+          editing ? (
+            <>
+              <button onClick={handleSave} disabled={updateMutation.isPending} className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors"><Check className="w-4 h-4 text-primary" /></button>
+              <button onClick={() => { setInput(current ?? ""); setEditing(false); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors"><X className="w-4 h-4 text-muted-foreground" /></button>
+            </>
+          ) : (
+            <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg hover:bg-muted transition-colors"><Pencil className="w-3.5 h-3.5 text-muted-foreground" /></button>
+          )
         )}
       </div>
     </div>

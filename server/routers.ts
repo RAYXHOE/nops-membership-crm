@@ -381,13 +381,19 @@ export const appRouter = router({
         return { success: true, memberId: member.id };
       }),
 
-    // 결혼기념일 업데이트
+    // 결혼기념일 업데이트 (미등록 시만 1회 허용)
     updateAnniversary: publicProcedure
       .input(z.object({
         memberId: z.number(),
         anniversaryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
       }))
       .mutation(async ({ input }) => {
+        const existing = await getMemberById(input.memberId);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+        // 이미 등록된 경우 수정 불가
+        if (existing.anniversaryDate) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "결혼기념일은 최초 등록 후 수정할 수 없습니다." });
+        }
         await updateMember(input.memberId, {
           anniversaryDate: input.anniversaryDate ? new Date(input.anniversaryDate) : null,
         });
