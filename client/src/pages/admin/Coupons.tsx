@@ -2,7 +2,7 @@ import { useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import QrScannerModal from "@/components/QrScannerModal";
 import { trpc } from "@/lib/trpc";
-import { Tag, CheckCircle2, Filter, RefreshCw, QrCode, Search, RotateCcw, MapPin } from "lucide-react";
+import { Tag, CheckCircle2, Filter, RefreshCw, QrCode, Search, RotateCcw, MapPin, Download, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,9 @@ export default function AdminCoupons() {
   const [memberSearch, setMemberSearch] = useState("");
   const [memberSearchInput, setMemberSearchInput] = useState("");
   const [branchFilter, setBranchFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   const limit = 30;
   const utils = trpc.useUtils();
 
@@ -32,6 +35,8 @@ export default function AdminCoupons() {
     offset: page * limit,
     memberSearch: memberSearch || undefined,
     usedBranchCode: branchFilter === "all" ? undefined : branchFilter,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
   });
 
   const useCouponMutation = trpc.admin.useCoupon.useMutation({
@@ -68,6 +73,27 @@ export default function AdminCoupons() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const items = query.data?.items ?? [];
   const total = query.data?.total ?? 0;
+
+  const exportQuery = trpc.admin.exportCouponsRaw.useQuery(
+    { status: status === "all" ? undefined : status, memberSearch: memberSearch || undefined, usedBranchCode: branchFilter === "all" ? undefined : branchFilter, startDate: startDate || undefined, endDate: endDate || undefined },
+    { enabled: false }
+  );
+
+  const downloadExcel = async () => {
+    setIsExporting(true);
+    try {
+      const result = await exportQuery.refetch();
+      if (!result.data || result.data.length === 0) { toast.error("다운로드할 데이터가 없습니다."); return; }
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(result.data);
+      ws["!cols"] = [{wch:6},{wch:18},{wch:20},{wch:14},{wch:8},{wch:10},{wch:12},{wch:28},{wch:15},{wch:12},{wch:12},{wch:12},{wch:14}];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "쿠폰목록");
+      XLSX.writeFile(wb, `NOPS_쿠폰목록_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,10 +191,31 @@ export default function AdminCoupons() {
                 ))}
               </SelectContent>
             </Select>
+            {/* 발급일 기간 필터 */}
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
+                className="h-10 w-36 text-sm"
+              />
+              <span className="text-muted-foreground text-sm">~</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
+                className="h-10 w-36 text-sm"
+              />
+            </div>
             <Button type="submit" className="h-10 px-5">검색</Button>
-            {(memberSearch || branchFilter !== "all") && (
+            <Button type="button" variant="outline" className="h-10 px-4 gap-2" onClick={downloadExcel} disabled={isExporting}>
+              <Download className="w-4 h-4" />
+              {isExporting ? "다운로드 중..." : "엑셀"}
+            </Button>
+            {(memberSearch || branchFilter !== "all" || startDate || endDate) && (
               <Button type="button" variant="ghost" size="sm" className="h-10 text-xs text-muted-foreground"
-                onClick={() => { setMemberSearch(""); setMemberSearchInput(""); setBranchFilter("all"); setPage(0); }}>
+                onClick={() => { setMemberSearch(""); setMemberSearchInput(""); setBranchFilter("all"); setStartDate(""); setEndDate(""); setPage(0); }}>
                 필터 초기화
               </Button>
             )}

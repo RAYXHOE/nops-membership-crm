@@ -130,10 +130,13 @@ export async function listMembers(opts?: {
   status?: "active" | "inactive" | "withdrawn";
   limit?: number;
   offset?: number;
+  startDate?: Date;
+  endDate?: Date;
 }) {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
 
+  const { gte, lte } = await import("drizzle-orm");
   const conditions = [];
   if (opts?.status) conditions.push(eq(members.status, opts.status));
   if (opts?.search) {
@@ -144,6 +147,12 @@ export async function listMembers(opts?: {
         like(members.phone, `%${opts.search}%`)
       )
     );
+  }
+  if (opts?.startDate) conditions.push(gte(members.joinedAt, opts.startDate));
+  if (opts?.endDate) {
+    const end = new Date(opts.endDate);
+    end.setHours(23, 59, 59, 999);
+    conditions.push(lte(members.joinedAt, end));
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;

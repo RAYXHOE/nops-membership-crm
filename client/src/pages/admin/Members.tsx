@@ -2,7 +2,7 @@ import { useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { Search, Users, ChevronRight, Filter } from "lucide-react";
+import { Search, Users, ChevronRight, Filter, Download, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,15 +24,41 @@ export default function AdminMembers() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [status, setStatus] = useState<"active" | "inactive" | "withdrawn" | "all">("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [page, setPage] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
   const limit = 20;
 
   const query = trpc.admin.listMembers.useQuery({
     search: search || undefined,
     status: status === "all" ? undefined : status,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
     limit,
     offset: page * limit,
   });
+
+  const exportQuery = trpc.admin.exportMembersRaw.useQuery(
+    { search: search || undefined, status: status === "all" ? undefined : status, startDate: startDate || undefined, endDate: endDate || undefined },
+    { enabled: false }
+  );
+
+  const downloadExcel = async () => {
+    setIsExporting(true);
+    try {
+      const result = await exportQuery.refetch();
+      if (!result.data || result.data.length === 0) { alert("다운로드할 데이터가 없습니다."); return; }
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.json_to_sheet(result.data);
+      ws["!cols"] = [{wch:6},{wch:12},{wch:28},{wch:15},{wch:14},{wch:14},{wch:14},{wch:10},{wch:10},{wch:12},{wch:10}];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "회원목록");
+      XLSX.writeFile(wb, `NOPS_회원목록_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +108,33 @@ export default function AdminMembers() {
                 <SelectItem value="withdrawn">탈퇴</SelectItem>
               </SelectContent>
             </Select>
+            {/* 가입일 기간 필터 */}
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
+                className="h-10 w-36 text-sm"
+                placeholder="시작일"
+              />
+              <span className="text-muted-foreground text-sm">~</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
+                className="h-10 w-36 text-sm"
+                placeholder="종료일"
+              />
+              {(startDate || endDate) && (
+                <button type="button" onClick={() => { setStartDate(""); setEndDate(""); setPage(0); }} className="text-xs text-muted-foreground hover:text-foreground underline">전체</button>
+              )}
+            </div>
             <Button type="submit" className="h-10 px-5">검색</Button>
+            <Button type="button" variant="outline" className="h-10 px-4 gap-2" onClick={downloadExcel} disabled={isExporting}>
+              <Download className="w-4 h-4" />
+              {isExporting ? "다운로드 중..." : "엑셀"}
+            </Button>
           </form>
         </div>
 

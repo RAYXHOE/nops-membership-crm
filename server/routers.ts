@@ -531,10 +531,48 @@ export const appRouter = router({
           status: z.enum(["active", "inactive", "withdrawn"]).optional(),
           limit: z.number().min(1).max(100).default(50),
           offset: z.number().min(0).default(0),
+          startDate: z.string().optional(), // YYYY-MM-DD
+          endDate: z.string().optional(),   // YYYY-MM-DD
         })
       )
       .query(async ({ input }) => {
-        return listMembers(input);
+        return listMembers({
+          ...input,
+          startDate: input.startDate ? new Date(input.startDate) : undefined,
+          endDate: input.endDate ? new Date(input.endDate) : undefined,
+        });
+      }),
+
+    // 회원 Raw Data 엑셀 다운로드 (전체 조회)
+    exportMembersRaw: branchAdminProcedure
+      .input(
+        z.object({
+          search: z.string().optional(),
+          status: z.enum(["active", "inactive", "withdrawn"]).optional(),
+          startDate: z.string().optional(),
+          endDate: z.string().optional(),
+        })
+      )
+      .query(async ({ input }) => {
+        const result = await listMembers({
+          ...input,
+          startDate: input.startDate ? new Date(input.startDate) : undefined,
+          endDate: input.endDate ? new Date(input.endDate) : undefined,
+          limit: 10000,
+          offset: 0,
+        });
+        return result.items.map((m) => ({
+          id: m.id,
+          name: m.name,
+          email: m.email,
+          phone: m.phone,
+          birthDate: m.birthDate ? new Date(m.birthDate).toLocaleDateString("ko-KR") : "",
+          anniversaryDate: m.anniversaryDate ? new Date(m.anniversaryDate).toLocaleDateString("ko-KR") : "",
+          marketingConsent: m.marketingConsent ? "동의" : "미동의",
+          status: m.status === "active" ? "활성" : m.status === "inactive" ? "비활성" : "탈퇴",
+          joinedAt: new Date(m.joinedAt).toLocaleDateString("ko-KR"),
+          pointBalance: m.pointBalance ?? 0,
+        }));
       }),
 
     // 회원 상세
@@ -601,17 +639,24 @@ export const appRouter = router({
           offset: z.number().min(0).default(0),
           memberSearch: z.string().optional(), // 회원 이름/이메일 검색
           usedBranchCode: z.string().optional(), // 사용 지점 필터
+          startDate: z.string().optional(), // YYYY-MM-DD 발급일 기준
+          endDate: z.string().optional(),   // YYYY-MM-DD
         })
       )
       .query(async ({ input }) => {
         const db = await (await import("./db")).getDb();
         if (!db) return { items: [], total: 0 };
         const { coupons, members } = await import("../drizzle/schema");
-        const { and, eq, like, or, isNotNull, desc, sql } = await import("drizzle-orm");
+        const { and, eq, like, or, desc, sql, gte, lte } = await import("drizzle-orm");
         const conditions: ReturnType<typeof eq>[] = [];
         if (input.memberId) conditions.push(eq(coupons.memberId, input.memberId) as ReturnType<typeof eq>);
         if (input.status) conditions.push(eq(coupons.status, input.status) as ReturnType<typeof eq>);
         if (input.usedBranchCode) conditions.push(eq(coupons.usedBranchCode, input.usedBranchCode) as ReturnType<typeof eq>);
+        if (input.startDate) conditions.push(gte(coupons.issuedAt, new Date(input.startDate)) as ReturnType<typeof eq>);
+        if (input.endDate) {
+          const end = new Date(input.endDate); end.setHours(23, 59, 59, 999);
+          conditions.push(lte(coupons.issuedAt, end) as ReturnType<typeof eq>);
+        }
         const where = conditions.length > 0 ? and(...conditions) : undefined;
         const limit = input.limit;
         const offset = input.offset;
@@ -619,7 +664,7 @@ export const appRouter = router({
         if (input.memberSearch) {
           const searchPattern = `%${input.memberSearch}%`;
           const [items, countResult] = await Promise.all([
-            db.select({ coupon: coupons, memberName: members.name, memberEmail: members.email })
+            db.select({ coupon: coupons, memberName: members.name, memberEmail: members.email, memberPhone: members.phone })
               .from(coupons)
               .leftJoin(members, eq(coupons.memberId, members.id))
               .where(and(where, or(like(members.name, searchPattern), like(members.email, searchPattern))))
@@ -630,7 +675,71 @@ export const appRouter = router({
           ]);
           return { items, total: Number(countResult[0]?.count ?? 0) };
         }
+        // 날짜 필터가 있으면 join 필요
+        if (input.startDate || input.endDate) {
+          const [items, countResult] = await Promise.all([
+            db.select({ coupon: coupons, memberName: members.name, memberEmail: members.email, memberPhone: members.phone })
+              .from(coupons)
+              .leftJoin(members, eq(coupons.memberId, members.id))
+              .where(where)
+              .orderBy(desc(coupons.issuedAt)).limit(limit).offset(offset),
+            db.select({ count: sql<number>`count(*)` }).from(coupons).where(where),
+          ]);
+          return { items, total: Number(countResult[0]?.count ?? 0) };
+        }
         return listAllCoupons({ memberId: input.memberId, status: input.status, limit, offset });
+      }),
+
+    // 쿠폰 Raw Data 엑셀 다운로드
+    exportCouponsRaw: branchAdminProcedure
+      .input(
+        z.object({
+          status: z.enum(["active", "used", "expired"]).optional(),
+          memberSearch: z.string().optional(),
+          usedBranchCode: z.string().optional(),
+          startDate: z.string().optional(),
+          endDate: z.string().optional(),
+        })
+      )
+      .query(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) return [];
+        const { coupons, members } = await import("../drizzle/schema");
+        const { and, eq, like, or, desc, gte, lte } = await import("drizzle-orm");
+        const conditions: ReturnType<typeof eq>[] = [];
+        if (input.status) conditions.push(eq(coupons.status, input.status) as ReturnType<typeof eq>);
+        if (input.usedBranchCode) conditions.push(eq(coupons.usedBranchCode, input.usedBranchCode) as ReturnType<typeof eq>);
+        if (input.startDate) conditions.push(gte(coupons.issuedAt, new Date(input.startDate)) as ReturnType<typeof eq>);
+        if (input.endDate) {
+          const end = new Date(input.endDate); end.setHours(23, 59, 59, 999);
+          conditions.push(lte(coupons.issuedAt, end) as ReturnType<typeof eq>);
+        }
+        if (input.memberSearch) {
+          const p = `%${input.memberSearch}%`;
+          conditions.push(or(like(members.name, p), like(members.email, p)) as ReturnType<typeof eq>);
+        }
+        const where = conditions.length > 0 ? and(...conditions) : undefined;
+        const items = await db.select({ coupon: coupons, memberName: members.name, memberEmail: members.email, memberPhone: members.phone })
+          .from(coupons)
+          .leftJoin(members, eq(coupons.memberId, members.id))
+          .where(where)
+          .orderBy(desc(coupons.issuedAt))
+          .limit(10000);
+        return items.map(({ coupon: c, memberName, memberEmail, memberPhone }) => ({
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          type: c.type,
+          discountPercent: c.discountPercent ?? "",
+          status: c.status === "active" ? "사용가능" : c.status === "used" ? "사용완료" : "만료",
+          memberName: memberName ?? "",
+          memberEmail: memberEmail ?? "",
+          memberPhone: memberPhone ?? "",
+          issuedAt: new Date(c.issuedAt).toLocaleDateString("ko-KR"),
+          expiresAt: new Date(c.expiresAt).toLocaleDateString("ko-KR"),
+          usedAt: c.usedAt ? new Date(c.usedAt).toLocaleDateString("ko-KR") : "",
+          usedBranchCode: c.usedBranchCode ?? "",
+        }));
       }),
 
     // 쿠폰 사용처리 되돌리기 (used → active)
