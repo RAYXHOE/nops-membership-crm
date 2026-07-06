@@ -19,9 +19,18 @@ const TEMPLATE_ANNIVERSARY = process.env.SOLAPI_TEMPLATE_ANNIVERSARY ?? "";
 const TEMPLATE_CORKAGE = process.env.SOLAPI_TEMPLATE_CORKAGE ?? "";
 const TEMPLATE_POINTS = process.env.SOLAPI_TEMPLATE_POINTS ?? "";
 
-// 전화번호 정규화 (하이픈 제거)
+// 전화번호 정규화 (하이픈 제거, 국제번호 형식 변환)
 function normalizePhone(phone: string): string {
-  return phone.replace(/-/g, "").replace(/\s/g, "");
+  let p = phone.replace(/-/g, "").replace(/\s/g, "");
+  // +82 국제번호 형식 변환: +821012345678 → 01012345678
+  if (p.startsWith("+82")) {
+    p = "0" + p.slice(3);
+  }
+  // 선행 + 제거 (기타 국제번호)
+  if (p.startsWith("+")) {
+    p = p.slice(1);
+  }
+  return p;
 }
 
 // ─── 가입 환영 알림톡 ─────────────────────────────────────────────────────────
