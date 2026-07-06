@@ -107,13 +107,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <>
       <div className="px-6 py-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full coupon-gold-shimmer flex items-center justify-center">
-            <Crown className="w-4 h-4 text-sidebar" />
-          </div>
-          <div>
-            <p className="text-sidebar-foreground font-bold tracking-wider text-sm uppercase">NOPS</p>
-            <p className="text-sidebar-foreground/50 text-xs">Steak House CRM</p>
-          </div>
+          <img
+            src="/manus-storage/nops-logo_4916b11f.png"
+            alt="NOPS"
+            className="h-9 w-auto object-contain brightness-0 invert"
+          />
+          <p className="text-sidebar-foreground/50 text-xs tracking-widest">CRM</p>
         </div>
       </div>
 
@@ -196,8 +195,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <Crown className="w-4 h-4 text-primary" />
-            <span className="text-sidebar-foreground font-bold tracking-wider text-sm uppercase">NOPS</span>
+            <img src="/manus-storage/nops-logo_4916b11f.png" alt="NOPS" className="h-7 w-auto object-contain brightness-0 invert" />
             <span className="text-sidebar-foreground/50 text-xs">CRM</span>
           </div>
         </header>

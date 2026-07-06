@@ -4,56 +4,64 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* ─── Elegant Dark-Gold Palette ─────────────────────────────────────────── */
-  --color-background: oklch(0.98 0.003 60);
-  --color-foreground: oklch(0.13 0.01 60);
+  /* ─── NOPS Burgundy Palette (#800020) ───────────────────────────────── */
+  /* Background: #F9F8F6 warm white */
+  --color-background: oklch(0.985 0.004 75);
+  /* Foreground: dark charcoal */
+  --color-foreground: oklch(0.18 0.01 30);
 
   --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.13 0.01 60);
+  --color-card-foreground: oklch(0.18 0.01 30);
 
   --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.13 0.01 60);
+  --color-popover-foreground: oklch(0.18 0.01 30);
 
-  /* Gold accent */
-  --color-primary: oklch(0.50 0.09 55);
-  --color-primary-foreground: oklch(0.98 0.003 60);
+  /* Primary: Burgundy #800020 */
+  --color-primary: oklch(0.38 0.14 15);
+  --color-primary-foreground: oklch(0.99 0 0);
 
-  --color-secondary: oklch(0.94 0.01 60);
-  --color-secondary-foreground: oklch(0.25 0.02 60);
+  /* Secondary: soft warm grey */
+  --color-secondary: oklch(0.95 0.005 60);
+  --color-secondary-foreground: oklch(0.30 0.01 30);
 
-  --color-muted: oklch(0.95 0.005 60);
-  --color-muted-foreground: oklch(0.50 0.015 60);
+  /* Muted: #F9F8F6 tone */
+  --color-muted: oklch(0.96 0.004 75);
+  /* Sub text: #6B6365 */
+  --color-muted-foreground: oklch(0.50 0.01 15);
 
-  --color-accent: oklch(0.92 0.02 55);
-  --color-accent-foreground: oklch(0.25 0.02 60);
+  --color-accent: oklch(0.93 0.008 60);
+  --color-accent-foreground: oklch(0.25 0.01 30);
 
   --color-destructive: oklch(0.55 0.2 25);
   --color-destructive-foreground: oklch(0.98 0 0);
 
-  --color-border: oklch(0.88 0.01 60);
-  --color-input: oklch(0.88 0.01 60);
-  --color-ring: oklch(0.50 0.09 55);
+  /* Border/Line: #E5DFDB */
+  --color-border: oklch(0.90 0.008 60);
+  --color-input: oklch(0.90 0.008 60);
+  --color-ring: oklch(0.38 0.14 15);
 
-  --color-chart-1: oklch(0.50 0.09 55);
-  --color-chart-2: oklch(0.60 0.07 200);
-  --color-chart-3: oklch(0.70 0.06 140);
-  --color-chart-4: oklch(0.63 0.1 30);
-  --color-chart-5: oklch(0.56 0.08 280);
+  --color-chart-1: oklch(0.38 0.14 15);
+  --color-chart-2: oklch(0.55 0.1 200);
+  --color-chart-3: oklch(0.65 0.08 140);
+  --color-chart-4: oklch(0.60 0.1 30);
+  --color-chart-5: oklch(0.52 0.09 280);
 
-  --color-sidebar: oklch(0.11 0.01 60);
-  --color-sidebar-foreground: oklch(0.88 0.01 60);
-  --color-sidebar-primary: oklch(0.73 0.09 55);
-  --color-sidebar-primary-foreground: oklch(0.11 0.01 60);
-  --color-sidebar-accent: oklch(0.19 0.02 60);
-  --color-sidebar-accent-foreground: oklch(0.88 0.01 60);
-  --color-sidebar-border: oklch(0.21 0.02 60);
-  --color-sidebar-ring: oklch(0.73 0.09 55);
+  /* Sidebar: deep burgundy-dark */
+  --color-sidebar: oklch(0.22 0.06 15);
+  --color-sidebar-foreground: oklch(0.93 0.005 60);
+  --color-sidebar-primary: oklch(0.55 0.12 15);
+  --color-sidebar-primary-foreground: oklch(0.99 0 0);
+  --color-sidebar-accent: oklch(0.30 0.07 15);
+  --color-sidebar-accent-foreground: oklch(0.93 0.005 60);
+  --color-sidebar-border: oklch(0.32 0.06 15);
+  --color-sidebar-ring: oklch(0.55 0.12 15);
 
-  --radius-lg: 0.75rem;
-  --radius-md: 0.5rem;
-  --radius-sm: 0.375rem;
+  /* Radius: 0 for buttons (sharp), small for inputs */
+  --radius-lg: 0.375rem;
+  --radius-md: 0.25rem;
+  --radius-sm: 0.125rem;
 
-  /* ─── 고딕체 폰트 스택 ─────────────────────────────────────────────────── */
+  /* ─── 고딕체 폰트 스택 ────────────────────────────────────────── */
   --font-sans: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 }
