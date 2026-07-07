@@ -307,6 +307,24 @@ function CouponView({ memberId }: { memberId: number }) {
                 <div className="flex justify-between"><span className="text-muted-foreground">유효기간</span><span className="font-medium">{new Date(selectedCoupon.expiresAt).toLocaleDateString("ko-KR")}까지</span></div>
               </div>
               {selectedCoupon.description && <p className="text-xs text-muted-foreground text-center border-t border-border pt-4 w-full">{selectedCoupon.description}</p>}
+              {/* 쿠폰 이용 안내 */}
+              <div className="w-full border-t border-border pt-4">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">이용 안내</p>
+                <ul className="space-y-1">
+                  <li className="text-xs text-muted-foreground flex items-start gap-1.5">
+                    <span className="text-primary mt-0.5 shrink-0">•</span>
+                    <span>직원에게 이 화면 또는 쿠폰 코드를 보여주세요.</span>
+                  </li>
+                  <li className="text-xs text-muted-foreground flex items-start gap-1.5">
+                    <span className="text-primary mt-0.5 shrink-0">•</span>
+                    <span>쿠폰 중복 사용은 불가합니다.</span>
+                  </li>
+                  <li className="text-xs text-muted-foreground flex items-start gap-1.5">
+                    <span className="text-primary mt-0.5 shrink-0">•</span>
+                    <span>대관 행사 시 쿠폰 사용이 불가합니다.</span>
+                  </li>
+                </ul>
+              </div>
             </div>
           )}
         </DialogContent>
