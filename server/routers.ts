@@ -409,6 +409,89 @@ export const appRouter = router({
           marketingConsent: input.marketingConsent,
           marketingConsentAt: input.marketingConsent ? now : undefined,
         });
+
+        // 마케팅 동의 시: 생일 월 / 기념일 월이면 쿠폰 즉시 발급
+        if (input.marketingConsent) {
+          const currentMonth = now.getMonth() + 1;
+          const currentYear = now.getFullYear();
+          const { getDb: getDbLocal } = await import("./db");
+          const { coupons: couponsSchema } = await import("../drizzle/schema");
+          const { and: andOp, eq: eqOp, sql: sqlOp } = await import("drizzle-orm");
+          const dbLocal = await getDbLocal();
+
+          // 생일 월 일치 시 생일 쿠폰 발급
+          if (member.birthDate) {
+            const birthMonth = new Date(member.birthDate).getMonth() + 1;
+            if (birthMonth === currentMonth && dbLocal) {
+              const existingBirthday = await dbLocal.select()
+                .from(couponsSchema)
+                .where(andOp(
+                  eqOp(couponsSchema.memberId, member.id),
+                  eqOp(couponsSchema.type, "birthday"),
+                  sqlOp`YEAR(issuedAt) = ${currentYear}`
+                )).limit(1);
+              if (existingBirthday.length === 0) {
+                const birthdayTemplate = await getCouponTemplateByType("birthday");
+                if (birthdayTemplate) {
+                  const expiresAt = new Date(now);
+                  expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
+                  try {
+                    await issueCoupon({
+                      memberId: member.id,
+                      templateId: birthdayTemplate.id,
+                      code: generateCouponCode("BDAY"),
+                      type: "birthday",
+                      discountPercent: birthdayTemplate.discountPercent,
+                      name: birthdayTemplate.name,
+                      description: `${currentYear}년 생일 축하 쿠폰`,
+                      expiresAt,
+                    });
+                    console.log(`[UpdateMarketing] 생일 쿠폰 즉시 발급: memberId=${member.id}`);
+                  } catch (err) {
+                    console.error(`[UpdateMarketing] 생일 쿠폰 발급 실패:`, err);
+                  }
+                }
+              }
+            }
+          }
+
+          // 기념일 월 일치 시 기념일 쿠폰 발급
+          if (member.anniversaryDate) {
+            const anniversaryMonth = new Date(member.anniversaryDate).getMonth() + 1;
+            if (anniversaryMonth === currentMonth && dbLocal) {
+              const existingAnniversary = await dbLocal.select()
+                .from(couponsSchema)
+                .where(andOp(
+                  eqOp(couponsSchema.memberId, member.id),
+                  eqOp(couponsSchema.type, "anniversary"),
+                  sqlOp`YEAR(issuedAt) = ${currentYear}`
+                )).limit(1);
+              if (existingAnniversary.length === 0) {
+                const anniversaryTemplate = await getCouponTemplateByType("anniversary");
+                if (anniversaryTemplate) {
+                  const expiresAt = new Date(now);
+                  expiresAt.setDate(expiresAt.getDate() + anniversaryTemplate.validDays);
+                  try {
+                    await issueCoupon({
+                      memberId: member.id,
+                      templateId: anniversaryTemplate.id,
+                      code: generateCouponCode("ANNI"),
+                      type: "anniversary",
+                      discountPercent: anniversaryTemplate.discountPercent,
+                      name: anniversaryTemplate.name,
+                      description: `${currentYear}년 결혼기념일 축하 쿠폰`,
+                      expiresAt,
+                    });
+                    console.log(`[UpdateMarketing] 기념일 쿠폰 즉시 발급: memberId=${member.id}`);
+                  } catch (err) {
+                    console.error(`[UpdateMarketing] 기념일 쿠폰 발급 실패:`, err);
+                  }
+                }
+              }
+            }
+          }
+        }
+
         return { success: true };
       }),
 
