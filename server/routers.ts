@@ -294,7 +294,47 @@ export const appRouter = router({
             console.error(`[Register] ⚠️ discount_percent 템플릿을 찾을 수 없음: memberId=${member.id}, marketingConsent=true`);
           }
 
-          // 생일 쿠폰은 매월 1일 스케줄러에서 생일 당월에 자동 발급 (register 시 즉시 발급 안 함)
+          // 생일 쿠폰: 가입 시 해당 월이 생일 월이면 즉시 발급 (연도 중복 제외)
+          if (birthdayTemplate && input.birthDate) {
+            const birthMonth = new Date(input.birthDate).getMonth() + 1;
+            const joinMonth = now.getMonth() + 1;
+            const joinYear = now.getFullYear();
+            if (birthMonth === joinMonth) {
+              // 이미 올해 생일 쿠폰 발급된 경우 제외
+              const { getDb: getDbLocal } = await import("./db");
+              const dbLocal = await getDbLocal();
+              const { coupons: couponsSchema } = await import("../drizzle/schema");
+              const { and: andOp, eq: eqOp, sql: sqlOp } = await import("drizzle-orm");
+              const existingBirthday = dbLocal ? await dbLocal.select()
+                .from(couponsSchema)
+                .where(
+                  andOp(
+                    eqOp(couponsSchema.memberId, member.id),
+                    eqOp(couponsSchema.type, "birthday"),
+                    sqlOp`YEAR(issuedAt) = ${joinYear}`
+                  )
+                ).limit(1) : [];
+              if (!existingBirthday || existingBirthday.length === 0) {
+                const expiresAt = new Date(now);
+                expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
+                try {
+                  await issueCoupon({
+                    memberId: member.id,
+                    templateId: birthdayTemplate.id,
+                    code: generateCouponCode("BDAY"),
+                    type: "birthday",
+                    discountPercent: birthdayTemplate.discountPercent,
+                    name: birthdayTemplate.name,
+                    description: `${joinYear}년 생일 축하 쿠폰`,
+                    expiresAt,
+                  });
+                  console.log(`[Register] 생일 쿠폰 즉시 발급: memberId=${member.id} (${birthMonth}월 생일)`);
+                } catch (err) {
+                  console.error(`[Register] ⚠️ 생일 쿠폰 발급 실패: memberId=${member.id}`, err);
+                }
+              }
+            }
+          }
         }
 
         // 발급된 쿠폰 목록 조회
