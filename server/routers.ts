@@ -294,8 +294,8 @@ export const appRouter = router({
             console.error(`[Register] ⚠️ discount_percent 템플릿을 찾을 수 없음: memberId=${member.id}, marketingConsent=true`);
           }
 
-          // 생일 쿠폰: 가입 시 해당 월이 생일 월이면 즉시 발급 (연도 중복 제외)
-          if (birthdayTemplate && input.birthDate) {
+          // 생일 쿠폰: 마케팅 동의 + 가입 월 = 생일 월이면 즉시 발급 (연도 중복 제외)
+          if (birthdayTemplate && input.birthDate && input.marketingConsent) {
             const birthMonth = new Date(input.birthDate).getMonth() + 1;
             const joinMonth = now.getMonth() + 1;
             const joinYear = now.getFullYear();

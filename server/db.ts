@@ -530,6 +530,7 @@ export async function getMembersWithAnniversaryThisMonth() {
     .where(
       and(
         eq(members.status, "active"),
+        eq(members.marketingConsent, true), // 마케팅 동의 회원만
         sql`MONTH(anniversaryDate) = ${month}`,
         sql`anniversaryDate IS NOT NULL`
       )
@@ -574,6 +575,7 @@ export async function getMembersWithBirthdayThisMonth() {
     .where(
       and(
         eq(members.status, "active"),
+        eq(members.marketingConsent, true), // 마케팅 동의 회원만
         sql`MONTH(birthDate) = ${month}`
       )
     );
