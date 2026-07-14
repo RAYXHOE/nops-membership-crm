@@ -614,7 +614,53 @@ export const appRouter = router({
             couponsIssued++;
           }
 
-          // 생일 쿠폰은 매월 1일 스케줄러에서 생일 당월에 자동 발급 (즉시 발급 안 함)
+          // 생일 쿠폰: 생일 월 = 현재 월이면 즉시 발급 (연도 중복 제외)
+          if (!hasBirthday && birthdayTemplate && member.birthDate) {
+            const birthMonth = new Date(member.birthDate).getMonth() + 1;
+            const currentMonth = now.getMonth() + 1;
+            if (birthMonth === currentMonth) {
+              const expiresAt = new Date(now);
+              expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
+              await issueCoupon({
+                memberId: input.memberId,
+                templateId: birthdayTemplate.id,
+                code: generateCouponCode("BDAY"),
+                type: "birthday",
+                discountPercent: birthdayTemplate.discountPercent,
+                name: birthdayTemplate.name,
+                description: `${now.getFullYear()}년 생일 축하 쿠폰`,
+                expiresAt,
+              });
+              couponsIssued++;
+            }
+          }
+
+          // 기념일 쿠폰: 기념일 월 = 현재 월이면 즉시 발급 (연도 중복 제외)
+          const hasAnniversary = existingCoupons.some(
+            (c) => c.type === "anniversary" && c.birthdayYear === now.getFullYear()
+          );
+          if (!hasAnniversary && member.anniversaryDate) {
+            const anniversaryMonth = new Date(member.anniversaryDate).getMonth() + 1;
+            const currentMonth = now.getMonth() + 1;
+            if (anniversaryMonth === currentMonth) {
+              const anniversaryTemplate = await getCouponTemplateByType("anniversary");
+              if (anniversaryTemplate) {
+                const expiresAt = new Date(now);
+                expiresAt.setDate(expiresAt.getDate() + anniversaryTemplate.validDays);
+                await issueCoupon({
+                  memberId: input.memberId,
+                  templateId: anniversaryTemplate.id,
+                  code: generateCouponCode("ANNI"),
+                  type: "anniversary",
+                  discountPercent: anniversaryTemplate.discountPercent,
+                  name: anniversaryTemplate.name,
+                  description: `${now.getFullYear()}년 결혼기념일 축하 쿠폰`,
+                  expiresAt,
+                });
+                couponsIssued++;
+              }
+            }
+          }
         }
 
         return { success: true, couponsIssued, alreadySame: false };

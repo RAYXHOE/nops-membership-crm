@@ -61,12 +61,16 @@ function createPublicCtx(): TrpcContext {
   };
 }
 
+// 현재 월 생일로 설정 → 마케팅 동의 시 생일 쿠폰도 즉시 발급되어 총 2장
+const now = new Date();
+const currentMonthBirthDate = new Date(now.getFullYear(), now.getMonth(), 15);
+
 const mockMember = {
   id: 1,
   name: "홍길동",
   email: "test@example.com",
   phone: "010-1234-5678",
-  birthDate: new Date("1990-01-01"),
+  birthDate: currentMonthBirthDate,
   privacyConsent: true,
   privacyConsentAt: new Date(),
   privacyConsentContent: "동의",
