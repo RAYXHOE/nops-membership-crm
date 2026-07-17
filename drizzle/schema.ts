@@ -54,6 +54,10 @@ export const members = mysqlTable("members", {
   notes: text("notes"),
   // 적립금
   pointBalance: int("pointBalance").notNull().default(0),
+  // 등급제 (bronze: 기본, silver: 실버, gold: 골드, vip: VIP)
+  // 등급 산정 기준: 연간 방문 횟수 또는 누적 구매액 (2026년 말 도입 예정)
+  tier: mysqlEnum("tier", ["bronze", "silver", "gold", "vip"]).notNull().default("bronze"),
+  tierUpdatedAt: timestamp("tierUpdatedAt"),
 });
 
 export type Member = typeof members.$inferSelect;
