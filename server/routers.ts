@@ -63,6 +63,19 @@ function generateCouponCode(prefix: string): string {
   return code;
 }
 
+// 쿠폰 발급 재시도 로직 (Cold Start 등 일시적 DB 연결 실패 대비)
+async function issueCouponWithRetry(data: Parameters<typeof issueCoupon>[0], maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await issueCoupon(data);
+      return;
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
 const PRIVACY_CONSENT_TEXT = `개인정보 수집·이용 동의서
 
 수집 항목: 이름, 이메일, 전화번호, 생년월일
@@ -258,15 +271,20 @@ export const appRouter = router({
         if (corkageTemplate) {
           const expiresAt = new Date(now);
           expiresAt.setDate(expiresAt.getDate() + corkageTemplate.validDays);
-          await issueCoupon({
-            memberId: member.id,
-            templateId: corkageTemplate.id,
-            code: generateCouponCode("CORK"),
-            type: "corkage_free",
-            name: corkageTemplate.name,
-            description: corkageTemplate.description,
-            expiresAt,
-          });
+          try {
+            await issueCouponWithRetry({
+              memberId: member.id,
+              templateId: corkageTemplate.id,
+              code: generateCouponCode("CORK"),
+              type: "corkage_free",
+              name: corkageTemplate.name,
+              description: corkageTemplate.description,
+              expiresAt,
+            });
+            console.log(`[Register] 콜키지 프리 쿠폰 발급 성공: memberId=${member.id}`);
+          } catch (err) {
+            console.error(`[CouponIssue] Failed for memberId=${member.id} type=corkage_free`, err);
+          }
         }
 
         // 마케팅 동의 시 추가 혜택: 10% 할인 쿠폰 + 생일 쿠폰
@@ -275,7 +293,7 @@ export const appRouter = router({
             const expiresAt = new Date(now);
             expiresAt.setDate(expiresAt.getDate() + discountTemplate.validDays);
             try {
-              await issueCoupon({
+              await issueCouponWithRetry({
                 memberId: member.id,
                 templateId: discountTemplate.id,
                 code: generateCouponCode("NOPS"),
@@ -287,8 +305,7 @@ export const appRouter = router({
               });
               console.log(`[Register] 10% 할인 쿠폰 발급 성공: memberId=${member.id}`);
             } catch (couponErr) {
-              console.error(`[Register] ⚠️ 10% 할인 쿠폰 발급 실패: memberId=${member.id}`, couponErr);
-              // 쿠폰 발급 실패해도 가입은 성공 유지, check-missing-coupons 스케줄러가 보정함
+              console.error(`[CouponIssue] Failed for memberId=${member.id} type=discount_percent`, couponErr);
             }
           } else {
             console.error(`[Register] ⚠️ discount_percent 템플릿을 찾을 수 없음: memberId=${member.id}, marketingConsent=true`);
@@ -318,7 +335,7 @@ export const appRouter = router({
                 const expiresAt = new Date(now);
                 expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
                 try {
-                  await issueCoupon({
+                  await issueCouponWithRetry({
                     memberId: member.id,
                     templateId: birthdayTemplate.id,
                     code: generateCouponCode("BDAY"),
@@ -330,7 +347,7 @@ export const appRouter = router({
                   });
                   console.log(`[Register] 생일 쿠폰 즉시 발급: memberId=${member.id} (${birthMonth}월 생일)`);
                 } catch (err) {
-                  console.error(`[Register] ⚠️ 생일 쿠폰 발급 실패: memberId=${member.id}`, err);
+                  console.error(`[CouponIssue] Failed for memberId=${member.id} type=birthday`, err);
                 }
               }
             }
