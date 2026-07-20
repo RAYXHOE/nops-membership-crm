@@ -1567,6 +1567,85 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // ─── 적립 누락 모니터링 ──────────────────────────────────────────────────
+    getPointsMissingStats: adminProcedure.query(async () => {
+      const db = await (await import("./db")).getDb();
+      if (!db) return { todayPurchases: 0, todayEarns: 0, missingCount: 0, missingItems: [] };
+      const { sql } = await import("drizzle-orm");
+
+      // 오늘 날짜 범위 (KST 기준)
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const [todayPurchasesResult, todayEarnsResult, missingResult] = await Promise.all([
+        // 오늘 구매 건수 (finalAmount > 0)
+        db.execute(sql`SELECT COUNT(*) as cnt FROM purchases WHERE finalAmount > 0 AND purchasedAt >= ${todayStart} AND purchasedAt <= ${todayEnd}`),
+        // 오늘 적립 건수
+        db.execute(sql`SELECT COUNT(*) as cnt FROM points WHERE type = 'earn' AND createdAt >= ${todayStart} AND createdAt <= ${todayEnd}`),
+        // 누락 목록 (구매 있는데 적립 없는 건, 단 calcEarnPoints > 0인 경우만)
+        db.execute(sql`
+          SELECT p.id as purchaseId, p.memberId, p.finalAmount, p.purchasedAt,
+                 m.name as memberName, m.email as memberEmail
+          FROM purchases p
+          LEFT JOIN points pt ON pt.purchaseId = p.id AND pt.type = 'earn'
+          LEFT JOIN members m ON m.id = p.memberId
+          WHERE p.finalAmount >= 3400
+          AND pt.id IS NULL
+          AND p.status != 'cancelled'
+          ORDER BY p.purchasedAt DESC
+          LIMIT 50
+        `),
+      ]);
+
+      const purchaseRows = Array.isArray(todayPurchasesResult[0]) ? todayPurchasesResult[0] as Record<string,unknown>[] : [];
+      const earnRows = Array.isArray(todayEarnsResult[0]) ? todayEarnsResult[0] as Record<string,unknown>[] : [];
+      const todayPurchases = Number(purchaseRows[0]?.cnt ?? 0);
+      const todayEarns = Number(earnRows[0]?.cnt ?? 0);
+      const missingRaw = Array.isArray(missingResult[0]) ? missingResult[0] as unknown[] : [];
+      const missingItems = missingRaw.map((r: unknown) => {
+        const row = r as Record<string, unknown>;
+        return {
+          purchaseId: Number(row.purchaseId),
+          memberId: Number(row.memberId),
+          finalAmount: Number(row.finalAmount),
+          purchasedAt: row.purchasedAt as Date,
+          memberName: row.memberName as string | null,
+          memberEmail: row.memberEmail as string | null,
+          expectedPoints: Math.floor(Number(row.finalAmount) * 3 / 100) * 100,
+        };
+      });
+
+      return {
+        todayPurchases,
+        todayEarns,
+        missingCount: missingItems.length,
+        missingItems,
+      };
+    }),
+
+    // 누락 적립 수동 보정
+    fixMissingPoint: adminProcedure
+      .input(z.object({ purchaseId: z.number() }))
+      .mutation(async ({ input }) => {
+        const { earnPoints } = await import("./db");
+        const db = await (await import("./db")).getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { sql } = await import("drizzle-orm");
+        // 구매 정보 조회
+        const result = await db.execute(sql`SELECT * FROM purchases WHERE id = ${input.purchaseId} LIMIT 1`);
+        const rows = Array.isArray(result[0]) ? result[0] as unknown[] : [];
+        if (!rows.length) throw new TRPCError({ code: "NOT_FOUND", message: "구매 기록을 찾을 수 없습니다." });
+        const purchase = rows[0] as Record<string, unknown>;
+        // 이미 적립됐는지 확인
+        const existing = await db.execute(sql`SELECT id FROM points WHERE purchaseId = ${input.purchaseId} AND type = 'earn' LIMIT 1`);
+        const existingRows = Array.isArray(existing[0]) ? existing[0] as unknown[] : [];
+        if (existingRows.length > 0) throw new TRPCError({ code: "BAD_REQUEST", message: "이미 적립된 구매입니다." });
+        await earnPoints(Number(purchase.memberId), Number(purchase.finalAmount), input.purchaseId, "누락 적립 수동 보정");
+        return { success: true };
+      }),
+
     // ─── 알림톡 발송 로그 ──────────────────────────────────────────────────
     listAlimtalkLogs: staffProcedure
       .input(z.object({

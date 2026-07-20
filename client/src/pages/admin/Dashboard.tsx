@@ -1,5 +1,6 @@
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
+import { useState } from "react";
 import {
   Users,
   Tag,
@@ -9,7 +10,14 @@ import {
   ArrowUpRight,
   Calendar,
   Percent,
+  AlertTriangle,
+  CheckCircle2,
+  Coins,
+  ChevronDown,
+  ChevronUp,
+  Wrench,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Link } from "wouter";
 import {
   AreaChart,
@@ -71,6 +79,17 @@ export default function AdminDashboard() {
   const analyticsQuery = trpc.admin.getAnalytics.useQuery();
   const membersQuery = trpc.admin.listMembers.useQuery({ limit: 5 });
   const couponsQuery = trpc.admin.listCoupons.useQuery({ limit: 5 });
+  const pointsMissingQuery = trpc.admin.getPointsMissingStats.useQuery(undefined, {
+    refetchInterval: 5 * 60 * 1000, // 5분마다 자동 갱신
+  });
+  const fixMissingPoint = trpc.admin.fixMissingPoint.useMutation({
+    onSuccess: () => {
+      toast.success("적립 보정 완료!");
+      pointsMissingQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  const [showMissingList, setShowMissingList] = useState(false);
 
   const stats = analyticsQuery.data;
   const ms = stats?.memberStats;
@@ -98,6 +117,84 @@ export default function AdminDashboard() {
             {new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
           </p>
         </div>
+
+        {/* 적립 모니터링 위젯 */}
+        {pointsMissingQuery.data && (
+          <div className={`rounded-2xl border p-5 mb-6 ${
+            pointsMissingQuery.data.missingCount > 0
+              ? "bg-red-50 border-red-200"
+              : "bg-green-50 border-green-200"
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {pointsMissingQuery.data.missingCount > 0 ? (
+                  <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" />
+                )}
+                <div>
+                  <p className={`text-sm font-semibold ${
+                    pointsMissingQuery.data.missingCount > 0 ? "text-red-700" : "text-green-700"
+                  }`}>
+                    {pointsMissingQuery.data.missingCount > 0
+                      ? `적립 누락 ${pointsMissingQuery.data.missingCount}건 감지`
+                      : "적립 누락 없음"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    오늘 구매 {pointsMissingQuery.data.todayPurchases}건 /
+                    오늘 적립 {pointsMissingQuery.data.todayEarns}건
+                    {pointsMissingQuery.data.missingCount > 0 && (
+                      <span className="text-red-600 font-medium ml-1">
+                        · 누락 {pointsMissingQuery.data.missingCount}건 (3,400원 이상 구매 기준)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              {pointsMissingQuery.data.missingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowMissingList((v) => !v)}
+                  className="flex items-center gap-1 text-xs text-red-600 font-medium hover:text-red-800"
+                >
+                  {showMissingList ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  {showMissingList ? "접기" : "목록 보기"}
+                </button>
+              )}
+            </div>
+
+            {showMissingList && pointsMissingQuery.data.missingItems.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {pointsMissingQuery.data.missingItems.map((item) => (
+                  <div key={item.purchaseId} className="bg-white rounded-lg border border-red-100 p-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Coins className="w-4 h-4 text-red-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">
+                          {item.memberName ?? "(이름 없음)"}
+                          <span className="text-muted-foreground ml-1 font-normal">{item.memberEmail}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.finalAmount.toLocaleString()}원 구매 · 예상 적립 {item.expectedPoints.toLocaleString()}원 ·{" "}
+                          {new Date(item.purchasedAt).toLocaleDateString("ko-KR")}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={fixMissingPoint.isPending}
+                      onClick={() => fixMissingPoint.mutate({ purchaseId: item.purchaseId })}
+                      className="flex items-center gap-1 text-xs bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 disabled:opacity-50 shrink-0"
+                    >
+                      <Wrench className="w-3 h-3" />
+                      적립 보정
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
