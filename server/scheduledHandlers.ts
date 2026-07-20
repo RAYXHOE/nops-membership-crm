@@ -446,11 +446,14 @@ export async function checkMissingCouponsHandler(req: Request, res: Response) {
       issued++;
     }
 
-    // 운영자 알림 발송
-    await notifyOwner({
-      title: `[NOPS CRM] 쿠폰 미발급 ${issued}건 자동 보정 완료`,
-      content: `마케팅 동의 회원 중 10% 할인 쿠폰 미발급 ${issued}명을 감지하여 자동 발급했습니다.\n\n대상: ${issuedNames.join(", ")}`,
-    });
+    // 운영자 알림 발송 (3건 이상일 때만, 회원 ID 포함)
+    if (issued >= 3) {
+      const memberDetails = missingMembers.map(m => `${m.name}(id:${m.id}, ${m.email})`).join("\n");
+      await notifyOwner({
+        title: `[NOPS CRM] ⚠️ 쿠폰 미발급 ${issued}건 자동 보정 완료`,
+        content: `마케팅 동의 회원 중 10% 할인 쿠폰 미발급 ${issued}명을 감지하여 자동 발급했습니다.\n\n대상 회원 목록:\n${memberDetails}\n\n수동 확인이 필요한 경우 위 ID로 어드민에서 조회하세요.`,
+      });
+    }
 
     console.log(`[MissingCoupons] 자동 보정 발급: ${issued}명 — ${issuedNames.join(", ")}`);
     return res.json({ ok: true, issued, members: issuedNames });
