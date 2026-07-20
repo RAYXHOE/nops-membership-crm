@@ -110,6 +110,57 @@ function ConsentDialog({
   );
 }
 
+// 마케팅 동의 아코디언 컴포넌트
+function MarketingConsentAccordion({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="flex items-start gap-3">
+      <Checkbox
+        id="marketingConsent"
+        checked={checked}
+        onCheckedChange={(v) => onCheckedChange(v === true)}
+        className="mt-0.5"
+      />
+      <div className="flex-1">
+        <div className="flex items-center gap-1 flex-wrap">
+          <label htmlFor="marketingConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1">
+            <span className="text-muted-foreground text-xs font-semibold">[선택]</span>
+            마케팅 정보 수신 동의
+            <span className="text-xs text-muted-foreground">(국외 이전 포함/미국 AWS 서버)</span>
+          </label>
+          <button
+            type="button"
+            className="text-xs text-primary underline hover:opacity-70 flex items-center gap-0.5"
+            onClick={() => setOpen((o) => !o)}
+          >
+            내용 보기 {open ? "▲" : "▼"}
+          </button>
+        </div>
+        {open && (
+          <div className="mt-2 p-3 bg-muted/50 rounded-lg border border-border/50 text-xs text-muted-foreground space-y-1">
+            <p><span className="font-semibold text-foreground">수집 항목:</span> 이름, 이메일, 전화번호, 생년월일</p>
+            <p><span className="font-semibold text-foreground">이전 국가:</span> 미국 (AWS us-east-1, 버지니아 북부)</p>
+            <p><span className="font-semibold text-foreground">수탁 업체:</span> PingCAP, Inc. (TiDB Cloud) / Amazon Web Services, Inc.</p>
+            <p><span className="font-semibold text-foreground">이전 목적:</span> 멤버십 데이터베이스 운영 및 서비스 제공</p>
+            <p><span className="font-semibold text-foreground">보유 기간:</span> 회원 탈퇴 후 5년</p>
+            <div className="pt-1 border-t border-border/30">
+              <p className="text-primary text-xs font-semibold">✓ 동의 시 혜택: 10% 할인 쿠폰 + 생일 15% 쿠폰 즉시 발급</p>
+            </div>
+          </div>
+        )}
+      </div>
+      {checked && <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
+    </div>
+  );
+}
+
 export default function Register() {
   const [, navigate] = useLocation();
 
@@ -253,27 +304,11 @@ export default function Register() {
               <p className="text-destructive text-xs ml-7">{errors.privacyConsent.message}</p>
             )}
 
-            {/* 마케팅 동의 */}
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="marketingConsent"
-                checked={marketingConsent}
-                onCheckedChange={(v) => setValue("marketingConsent", v === true)}
-                className="mt-0.5"
-              />
-              <div className="flex-1">
-                <label htmlFor="marketingConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1">
-                  <span className="text-muted-foreground text-xs font-semibold">[선택]</span>
-                  마케팅 정보 수신 동의
-                </label>
-                <ConsentDialog
-                  title="마케팅 정보 수신 동의서"
-                  content={MARKETING_TEXT}
-                  onAgree={() => setValue("marketingConsent", true)}
-                />
-              </div>
-              {marketingConsent && <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
-            </div>
+            {/* 마케팅 동의 - 아코디언 방식 */}
+            <MarketingConsentAccordion
+              checked={marketingConsent}
+              onCheckedChange={(v) => setValue("marketingConsent", v)}
+            />
           </div>
 
           <Button
