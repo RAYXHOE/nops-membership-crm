@@ -84,6 +84,8 @@ export async function createMember(data: InsertMember) {
 export async function getMemberById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
+  // TiDB 복제 지연 우회: 리더 노드에서 직접 읽기
+  await db.execute(sql`SET SESSION tidb_replica_read = 'leader'`);
   const result = await db.select().from(members).where(eq(members.id, id)).limit(1);
   return result[0];
 }
@@ -91,6 +93,8 @@ export async function getMemberById(id: number) {
 export async function getMemberByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
+  // TiDB 복제 지연 우회: 리더 노드에서 직접 읽기
+  await db.execute(sql`SET SESSION tidb_replica_read = 'leader'`);
   const result = await db.select().from(members).where(eq(members.email, email)).limit(1);
   return result[0];
 }
