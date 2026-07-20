@@ -523,3 +523,140 @@ export async function sendBackupNotificationEmail(opts: {
     console.error("[Email] 백업 알림 이메일 발송 실패:", err);
   }
 }
+
+// ─── 적립 누락 알림 이메일 ────────────────────────────────────────────────────
+
+export async function sendPointsMissingAlertEmail(items: Array<{
+  memberName: string | null;
+  memberEmail: string | null;
+  finalAmount: number;
+  expectedPoints: number;
+  purchasedAt: Date;
+  purchaseId: number;
+}>) {
+  const ownerEmail = process.env.OWNER_EMAIL || "spvltm@gmail.com";
+
+  const rows = items.map((item) => `
+    <tr>
+      <td style="padding:10px 14px; border-bottom:1px solid #f0ebe3; font-size:13px; color:#1a1a1a;">
+        ${item.memberName ?? "(이름 없음)"}
+      </td>
+      <td style="padding:10px 14px; border-bottom:1px solid #f0ebe3; font-size:13px; color:#666;">
+        ${item.memberEmail ?? ""}
+      </td>
+      <td style="padding:10px 14px; border-bottom:1px solid #f0ebe3; font-size:13px; text-align:right; color:#1a1a1a; font-weight:700;">
+        ${item.finalAmount.toLocaleString()}원
+      </td>
+      <td style="padding:10px 14px; border-bottom:1px solid #f0ebe3; font-size:13px; text-align:right; color:#c9a84c; font-weight:700;">
+        ${item.expectedPoints.toLocaleString()}원
+      </td>
+      <td style="padding:10px 14px; border-bottom:1px solid #f0ebe3; font-size:12px; color:#888;">
+        ${new Date(item.purchasedAt).toLocaleString("ko-KR")}
+      </td>
+    </tr>
+  `).join("");
+
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: ownerEmail,
+    subject: `[NOPS CRM] ⚠️ 적립금 누락 ${items.length}건 감지`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 640px; margin: 0 auto;">
+        <div style="background: #1a1a1a; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+          <p style="color: #c9a84c; font-size: 11px; letter-spacing: 0.2em; margin: 0 0 6px;">NOPS CRM ALERT</p>
+          <h1 style="color: #ffffff; font-size: 18px; margin: 0;">적립금 누락 감지</h1>
+        </div>
+        <div style="background: #fff8f0; border: 1px solid #f0ebe3; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
+          <p style="color: #c0392b; font-size: 14px; font-weight: 700; margin: 0 0 16px;">
+            ⚠️ 구매 기록은 있으나 적립금이 발급되지 않은 ${items.length}건이 감지됐습니다.
+          </p>
+          <p style="color: #666; font-size: 13px; margin: 0 0 20px;">
+            아래 목록을 확인하고 관리자 대시보드에서 수동 보정해 주세요.
+          </p>
+          <table style="width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; border:1px solid #f0ebe3;">
+            <thead>
+              <tr style="background:#f7f3ee;">
+                <th style="padding:10px 14px; text-align:left; font-size:12px; color:#888; font-weight:600;">회원명</th>
+                <th style="padding:10px 14px; text-align:left; font-size:12px; color:#888; font-weight:600;">이메일</th>
+                <th style="padding:10px 14px; text-align:right; font-size:12px; color:#888; font-weight:600;">구매금액</th>
+                <th style="padding:10px 14px; text-align:right; font-size:12px; color:#888; font-weight:600;">예상 적립금</th>
+                <th style="padding:10px 14px; text-align:left; font-size:12px; color:#888; font-weight:600;">구매 시각</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+          <div style="margin-top:20px; padding:14px 18px; background:#fff3cd; border-radius:8px; border:1px solid #ffc107;">
+            <p style="margin:0; font-size:13px; color:#856404;">
+              <strong>보정 방법:</strong> 관리자 대시보드 → 대시보드 상단 적립 모니터링 위젯 → 목록 보기 → 적립 보정 버튼 클릭
+            </p>
+          </div>
+          <p style="text-align:center; color:#999; font-size:11px; margin-top:20px;">
+            이 알림은 매 2시간마다 자동 발송됩니다 (누락 감지 시에만).<br>
+            NOPS Steak House CRM
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+// ─── 적립 실패 즉시 알림 이메일 ───────────────────────────────────────────────
+
+export async function sendPointsFailureAlertEmail(opts: {
+  memberId: number;
+  memberName: string | null;
+  purchaseId?: number;
+  purchaseAmount: number;
+  error: string;
+}) {
+  const ownerEmail = process.env.OWNER_EMAIL || "spvltm@gmail.com";
+
+  await resend.emails.send({
+    from: FROM_EMAIL,
+    to: ownerEmail,
+    subject: `[NOPS CRM] 🚨 적립금 실패 즉시 알림 - ${opts.memberName ?? "회원"} (${opts.purchaseAmount.toLocaleString()}원)`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <div style="background: #c0392b; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+          <p style="color: #fff; font-size: 11px; letter-spacing: 0.2em; margin: 0 0 6px;">NOPS CRM — 즉시 알림</p>
+          <h1 style="color: #ffffff; font-size: 18px; margin: 0;">적립금 실패</h1>
+        </div>
+        <div style="background: #fff; border: 1px solid #e5e5e5; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
+          <table style="width:100%; border-collapse:collapse;">
+            <tr>
+              <td style="padding:8px 0; font-size:13px; color:#888; width:120px;">회원 ID</td>
+              <td style="padding:8px 0; font-size:13px; color:#1a1a1a; font-weight:700;">${opts.memberId}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0; font-size:13px; color:#888;">회원명</td>
+              <td style="padding:8px 0; font-size:13px; color:#1a1a1a; font-weight:700;">${opts.memberName ?? "(이름 없음)"}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0; font-size:13px; color:#888;">구매 ID</td>
+              <td style="padding:8px 0; font-size:13px; color:#1a1a1a;">${opts.purchaseId}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0; font-size:13px; color:#888;">구매금액</td>
+              <td style="padding:8px 0; font-size:13px; color:#1a1a1a; font-weight:700;">${opts.purchaseAmount.toLocaleString()}원</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0; font-size:13px; color:#888;">오류 내용</td>
+              <td style="padding:8px 0; font-size:12px; color:#c0392b; font-family:monospace;">${opts.error}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0; font-size:13px; color:#888;">발생 시각</td>
+              <td style="padding:8px 0; font-size:13px; color:#1a1a1a;">${new Date().toLocaleString("ko-KR")}</td>
+            </tr>
+          </table>
+          <div style="margin-top:20px; padding:14px 18px; background:#fff3cd; border-radius:8px; border:1px solid #ffc107;">
+            <p style="margin:0; font-size:13px; color:#856404;">
+              <strong>보정 방법:</strong> 관리자 대시보드 → 적립 모니터링 위젯 → 목록 보기 → 적립 보정 버튼
+            </p>
+          </div>
+        </div>
+      </div>
+    `,
+  });
+}

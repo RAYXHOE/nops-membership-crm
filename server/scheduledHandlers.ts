@@ -462,3 +462,70 @@ export async function checkMissingCouponsHandler(req: Request, res: Response) {
     return res.status(500).json({ error: String(err) });
   }
 }
+
+/**
+ * POST /api/scheduled/check-points-missing
+ * 매 2시간 실행 — 적립 누락 건 감지 시 운영자 이메일 알림 발송
+ * 자동 보정 없음 — 누락 원인 파악 후 수동 보정
+ */
+export async function checkPointsMissingHandler(req: Request, res: Response) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user.isCron) {
+      return res.status(403).json({ error: "cron-only endpoint" });
+    }
+  } catch {
+    return res.status(403).json({ error: "authentication failed" });
+  }
+
+  try {
+    const { getDb } = await import("./db");
+    const { sql } = await import("drizzle-orm");
+    const { sendPointsMissingAlertEmail } = await import("./email");
+
+    const db = await getDb();
+    if (!db) return res.status(500).json({ error: "DB not available" });
+
+    await db.execute(sql`SET SESSION tidb_replica_read = 'leader'`);
+
+    // 적립 누락 조회 (3,400원 이상 구매 기준 — 100원 단위 절사 후 100원 이상 적립되는 최소 금액)
+    const result = await db.execute(sql`
+      SELECT p.id as purchaseId, p.memberId, p.finalAmount, p.purchasedAt,
+             m.name as memberName, m.email as memberEmail
+      FROM purchases p
+      LEFT JOIN points pt ON pt.purchaseId = p.id AND pt.type = 'earn'
+      LEFT JOIN members m ON m.id = p.memberId
+      WHERE p.finalAmount >= 3400
+      AND pt.id IS NULL
+      AND p.status != 'cancelled'
+      ORDER BY p.purchasedAt DESC
+      LIMIT 50
+    `);
+
+    const rows = Array.isArray(result[0]) ? result[0] as Record<string, unknown>[] : [];
+
+    if (rows.length === 0) {
+      console.log("[PointsMissing] 누락 없음");
+      return res.json({ ok: true, missing: 0 });
+    }
+
+    const items = rows.map((row) => ({
+      purchaseId: Number(row.purchaseId),
+      memberId: Number(row.memberId),
+      finalAmount: Number(row.finalAmount),
+      purchasedAt: row.purchasedAt as Date,
+      memberName: row.memberName as string | null,
+      memberEmail: row.memberEmail as string | null,
+      expectedPoints: Math.floor(Number(row.finalAmount) * 3 / 100) * 100,
+    }));
+
+    console.log(`[PointsMissing] 누락 ${items.length}건 감지 — 운영자 이메일 발송`);
+
+    await sendPointsMissingAlertEmail(items);
+
+    return res.json({ ok: true, missing: items.length, members: items.map((i) => i.memberName) });
+  } catch (err) {
+    console.error("[PointsMissing] Error:", err);
+    return res.status(500).json({ error: String(err) });
+  }
+}

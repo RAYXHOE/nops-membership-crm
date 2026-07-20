@@ -1165,6 +1165,17 @@ export const appRouter = router({
             if (latest) await earnPoints(input.memberId, input.finalAmount, latest.id);
           } catch (err) {
             console.error("[체크인 적립금] 자동 적립 실패:", err);
+            // 운영자 이메일 즉시 알림 (비동기, 실패 시 무시)
+            import("./email").then(({ sendPointsFailureAlertEmail }) => {
+              getMemberById(input.memberId).then((m) => {
+                sendPointsFailureAlertEmail({
+                  memberId: input.memberId,
+                  memberName: m?.name ?? null,
+                  purchaseAmount: input.finalAmount ?? 0,
+                  error: String(err),
+                }).catch(() => {});
+              }).catch(() => {});
+            }).catch(() => {});
           }
         }
 
@@ -1238,6 +1249,18 @@ export const appRouter = router({
           }
         } catch (err) {
           console.error("[적립금] 자동 적립 실패:", err);
+          // 운영자 이메일 즉시 알림 (비동기, 실패 시 무시)
+          import("./email").then(({ sendPointsFailureAlertEmail }) => {
+            getMemberById(input.memberId).then((m) => {
+              sendPointsFailureAlertEmail({
+                memberId: input.memberId,
+                memberName: m?.name ?? null,
+                purchaseId: 0,
+                purchaseAmount: input.finalAmount,
+                error: String(err),
+              }).catch(() => {});
+            }).catch(() => {});
+          }).catch(() => {});
         }
         return { success: true };
       }),
