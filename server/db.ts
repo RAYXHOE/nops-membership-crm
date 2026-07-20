@@ -14,7 +14,6 @@ import {
   type InsertVisit,
   type InsertPurchase,
   type InsertConsentLog,
-  type CouponTemplate,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -190,26 +189,18 @@ export async function listCouponTemplates() {
   return db.select().from(couponTemplates).where(eq(couponTemplates.isActive, true));
 }
 
-// 쿠폰 템플릿 인메모리 캐시 (TiDB 복제 지연 우회)
-// 템플릿은 정적 데이터이므로 5분 TTL 캐싱 안전
-let _templateCache: Map<string, CouponTemplate> | null = null;
-let _templateCacheAt: number = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
-
 export async function getCouponTemplateByType(type: "discount_percent" | "corkage_free" | "birthday" | "anniversary" | "employee") {
-  if (!_templateCache || Date.now() - _templateCacheAt > CACHE_TTL_MS) {
-    const db = await getDb();
-    if (!db) return undefined;
-    const { sql } = await import("drizzle-orm");
-    const templates = await db
-      .select()
-      .from(couponTemplates)
-      .where(sql`${couponTemplates.isActive} = 1`);
-    _templateCache = new Map(templates.map(t => [t.type, t]));
-    _templateCacheAt = Date.now();
-    console.log(`[TemplateCache] 캐시 갱신: ${templates.length}개 템플릿 로드`);
-  }
-  return _templateCache.get(type);
+  const db = await getDb();
+  if (!db) return undefined;
+  // TiDB 복제 지연 우회: 리더 노드에서 직접 읽기 강제
+  // Serverless 환경에서 쿠폰 템플릿 조회가 복제 지연된 팔로워 노드에서 실행되는 문제 해소
+  await db.execute(sql`SET SESSION tidb_replica_read = 'leader'`);
+  const result = await db
+    .select()
+    .from(couponTemplates)
+    .where(sql`${couponTemplates.type} = ${type} AND ${couponTemplates.isActive} = 1`)
+    .limit(1);
+  return result[0];
 }
 
 // ─── Coupons ──────────────────────────────────────────────────────────────────
