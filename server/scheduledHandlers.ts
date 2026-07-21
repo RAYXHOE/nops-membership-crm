@@ -488,14 +488,14 @@ export async function checkPointsMissingHandler(req: Request, res: Response) {
 
     await db.execute(sql`SET SESSION tidb_replica_read = 'leader'`);
 
-    // 적립 누락 조회 (3,400원 이상 구매 기준 — 100원 단위 절사 후 100원 이상 적립되는 최소 금액)
+    // 적립 누락 조회 (3,334원 이상 구매 기준 — Math.floor(3334*0.03/100)*100 = 100원, 즉 100원 이상 적립되는 최소 금액)
     const result = await db.execute(sql`
       SELECT p.id as purchaseId, p.memberId, p.finalAmount, p.purchasedAt,
              m.name as memberName, m.email as memberEmail
       FROM purchases p
       LEFT JOIN points pt ON pt.purchaseId = p.id AND pt.type = 'earn'
       LEFT JOIN members m ON m.id = p.memberId
-      WHERE p.finalAmount >= 3400
+      WHERE p.finalAmount >= 3334
       AND pt.id IS NULL
       AND p.status != 'cancelled'
       ORDER BY p.purchasedAt DESC

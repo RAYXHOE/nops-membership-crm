@@ -1614,7 +1614,7 @@ export const appRouter = router({
           FROM purchases p
           LEFT JOIN points pt ON pt.purchaseId = p.id AND pt.type = 'earn'
           LEFT JOIN members m ON m.id = p.memberId
-          WHERE p.finalAmount >= 3400
+          WHERE p.finalAmount >= 3334
           AND pt.id IS NULL
           AND p.status != 'cancelled'
           ORDER BY p.purchasedAt DESC

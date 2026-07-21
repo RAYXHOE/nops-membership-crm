@@ -37,8 +37,11 @@ export async function dbBackupHandler(req: Request, res: Response) {
   }
 
   const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10);
-  const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  // KST(UTC+9) 기준 날짜 계산
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstNow = new Date(now.getTime() + kstOffset);
+  const dateStr = kstNow.toISOString().slice(0, 10); // KST 날짜
+  const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19); // 파일명은 UTC 유지 (고유성)
 
   try {
     console.log(`[DB Backup] 시작: ${timestamp}`);
