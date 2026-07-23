@@ -78,6 +78,7 @@ export default function AdminAnalytics() {
   const branchCodes = (branchCodesQuery.data ?? []) as { code: string; name: string }[];
 
   const branchMemberStatsQuery = trpc.admin.getBranchMemberStats.useQuery();
+  const branchCouponStatsQuery = trpc.admin.getBranchCouponStats.useQuery();
 
   const membersPeriodQuery = trpc.admin.getMembersByPeriod.useQuery(
     { startDate: start, endDate: end, groupBy },
@@ -424,6 +425,59 @@ export default function AdminAnalytics() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* ─── 지점별 쿠폰 사용 통계 ───────────────────────────────────────── */}
+        <div className="bg-card rounded-2xl border border-border/50 p-6 mb-6">
+          <SectionTitle icon={Tag} title="지점별 쿠폰 사용 현황" />
+          {branchCouponStatsQuery.isLoading ? (
+            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">로딩 중...</div>
+          ) : !branchCouponStatsQuery.data?.length ? (
+            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">쿠폰 사용 데이터 없음</div>
+          ) : (
+            <>
+              <div className="mb-6">
+                <p className="text-xs text-muted-foreground mb-4">지점별 쿠폰 사용 건수 (종류별 스택)</p>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart
+                    data={branchCouponStatsQuery.data}
+                    layout="vertical"
+                    margin={{ top: 4, right: 24, left: 8, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.88 0.01 60)" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="branch" tick={{ fontSize: 10 }} width={64} />
+                    <Tooltip formatter={(v: number, name: string) => [`${v}건`, name]} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="discount" name="할인" stackId="a" fill="#c9a84c" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="corkage" name="콜키지" stackId="a" fill="#6366f1" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="birthday" name="생일" stackId="a" fill="#ec4899" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="anniversary" name="기념일" stackId="a" fill="#f97316" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              {/* 지점별 순위 테이블 */}
+              <div className="border-t border-border/30 pt-4">
+                <p className="text-xs text-muted-foreground mb-3">지점별 순위</p>
+                <div className="space-y-2">
+                  {branchCouponStatsQuery.data.map((row, i) => {
+                    const totalAll = branchCouponStatsQuery.data!.reduce((s, r) => s + r.total, 0);
+                    const pct = totalAll > 0 ? (row.total / totalAll) * 100 : 0;
+                    return (
+                      <div key={row.code} className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground w-4 text-right">{i + 1}</span>
+                        <span className="text-xs font-medium w-28 truncate text-foreground">{row.branch}</span>
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold text-foreground w-20 text-right">{row.total}건 ({pct.toFixed(1)}%)</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ─── 지점별 가입자 통계 ─────────────────────────────────────────── */}

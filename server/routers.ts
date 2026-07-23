@@ -1798,6 +1798,38 @@ export const appRouter = router({
         return { earned: calcEarnPoints(input.finalAmount) };
       }),
 
+    // 지점별 쿠폰 사용 통계
+    getBranchCouponStats: staffProcedure.query(async () => {
+      const db = await (await import("./db")).getDb();
+      if (!db) return [];
+      const { sql } = await import("drizzle-orm");
+      const result = await db.execute(sql`
+        SELECT
+          b.name AS branch,
+          b.code AS code,
+          COUNT(c.id) AS total,
+          SUM(CASE WHEN c.type = 'discount_percent' THEN 1 ELSE 0 END) AS discount,
+          SUM(CASE WHEN c.type = 'corkage_free' THEN 1 ELSE 0 END) AS corkage,
+          SUM(CASE WHEN c.type = 'birthday' THEN 1 ELSE 0 END) AS birthday,
+          SUM(CASE WHEN c.type = 'anniversary' THEN 1 ELSE 0 END) AS anniversary
+        FROM coupons c
+        JOIN branches b ON b.code = c.usedBranchCode
+        WHERE c.status = 'used' AND c.usedBranchCode IS NOT NULL
+        GROUP BY b.code, b.name
+        ORDER BY total DESC
+      `);
+      const rows = Array.isArray(result[0]) ? result[0] as { branch: string; code: string; total: number; discount: number; corkage: number; birthday: number; anniversary: number }[] : [];
+      return rows.map((r) => ({
+        branch: r.branch,
+        code: r.code,
+        total: Number(r.total),
+        discount: Number(r.discount),
+        corkage: Number(r.corkage),
+        birthday: Number(r.birthday),
+        anniversary: Number(r.anniversary),
+      }));
+    }),
+
     // 지점별 가입자 통계
     getBranchMemberStats: staffProcedure.query(async () => {
       const db = await (await import("./db")).getDb();
