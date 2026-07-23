@@ -812,10 +812,14 @@ export const appRouter = router({
           notes: z.string().optional(),
           status: z.enum(["active", "inactive", "withdrawn"]).optional(),
           marketingConsent: z.boolean().optional(),
+          visitedBranch: z.string().max(100).nullable().optional(),
         })
       )
       .mutation(async ({ input }) => {
-        const { id, marketingConsent, ...data } = input;
+        const { id, marketingConsent, visitedBranch: vb, ...data } = input;
+        // visitedBranch: null 입력 시 빈 문자열로 저장
+        const visitedBranchVal = vb === null ? null : (vb ?? undefined);
+        const extraData = visitedBranchVal !== undefined ? { ...data, visitedBranch: visitedBranchVal } : data;
         // 마케팅 동의 변경 시 이력 기록
         if (marketingConsent !== undefined) {
           const existing = await getMemberById(id);
@@ -830,7 +834,7 @@ export const appRouter = router({
               userAgent: "admin-update",
             });
             await updateMember(id, {
-              ...data,
+              ...extraData,
               marketingConsent,
               marketingConsentAt: marketingConsent ? now : undefined,
               marketingConsentContent: marketingConsent ? MARKETING_CONSENT_TEXT : undefined,
@@ -838,7 +842,7 @@ export const appRouter = router({
             return { success: true };
           }
         }
-        await updateMember(id, { ...data, ...(marketingConsent !== undefined ? { marketingConsent } : {}) });
+        await updateMember(id, { ...extraData, ...(marketingConsent !== undefined ? { marketingConsent } : {}) });
         return { success: true };
       }),
 
@@ -1791,6 +1795,24 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return { earned: calcEarnPoints(input.finalAmount) };
       }),
+
+    // 지점별 가입자 통계
+    getBranchMemberStats: staffProcedure.query(async () => {
+      const db = await (await import("./db")).getDb();
+      if (!db) return [];
+      const { sql } = await import("drizzle-orm");
+      const result = await db.execute(sql`
+        SELECT
+          COALESCE(NULLIF(TRIM(visitedBranch), ''), '미지정') AS branch,
+          COUNT(*) AS count
+        FROM members
+        WHERE status != 'withdrawn'
+        GROUP BY COALESCE(NULLIF(TRIM(visitedBranch), ''), '미지정')
+        ORDER BY count DESC
+      `);
+      const rows = Array.isArray(result[0]) ? result[0] as { branch: string; count: number }[] : [];
+      return rows.map((r) => ({ branch: r.branch, count: Number(r.count) }));
+    }),
   }),
 });
 

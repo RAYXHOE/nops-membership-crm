@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, Users, Tag, TrendingUp, Percent, Download, Calendar } from "lucide-react";
+import { BarChart3, Users, Tag, TrendingUp, Percent, Download, Calendar, MapPin } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line,
@@ -76,6 +76,8 @@ export default function AdminAnalytics() {
 
   const branchCodesQuery = trpc.admin.listBranchCodes.useQuery();
   const branchCodes = (branchCodesQuery.data ?? []) as { code: string; name: string }[];
+
+  const branchMemberStatsQuery = trpc.admin.getBranchMemberStats.useQuery();
 
   const membersPeriodQuery = trpc.admin.getMembersByPeriod.useQuery(
     { startDate: start, endDate: end, groupBy },
@@ -422,6 +424,88 @@ export default function AdminAnalytics() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* ─── 지점별 가입자 통계 ─────────────────────────────────────────── */}
+        <div className="bg-card rounded-2xl border border-border/50 p-6 mb-6">
+          <SectionTitle icon={MapPin} title="지점별 가입자 현황" />
+          {branchMemberStatsQuery.isLoading ? (
+            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">로딩 중...</div>
+          ) : !branchMemberStatsQuery.data?.length ? (
+            <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">데이터 없음</div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-8">
+              <div>
+                <p className="text-xs text-muted-foreground mb-4">지점별 가입자 수</p>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart
+                    data={branchMemberStatsQuery.data}
+                    layout="vertical"
+                    margin={{ top: 4, right: 24, left: 8, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.88 0.01 60)" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="branch" tick={{ fontSize: 10 }} width={64} />
+                    <Tooltip formatter={(v: number) => [`${v.toLocaleString()}명`, "가입자"]} />
+                    <Bar dataKey="count" name="가입자" fill="oklch(0.52 0.09 55)" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-4">지점 비율</p>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={branchMemberStatsQuery.data}
+                      dataKey="count"
+                      nameKey="branch"
+                      cx="50%" cy="50%"
+                      innerRadius={45} outerRadius={80}
+                      label={({ branch, percent }) => percent > 0.04 ? `${branch} ${Math.round(percent * 100)}%` : ""}
+                      labelLine={false}
+                    >
+                      {branchMemberStatsQuery.data.map((_, i) => (
+                        <Cell key={i} fill={[
+                          "oklch(0.52 0.09 55)","oklch(0.62 0.07 200)","oklch(0.72 0.06 140)",
+                          "oklch(0.65 0.1 30)","oklch(0.58 0.12 280)","oklch(0.68 0.09 160)",
+                          "oklch(0.55 0.11 320)","oklch(0.75 0.08 80)","oklch(0.60 0.10 240)",
+                          "oklch(0.70 0.07 20)","oklch(0.50 0.13 350)","oklch(0.65 0.09 110)",
+                          "oklch(0.72 0.06 60)","oklch(0.58 0.08 190)","oklch(0.63 0.11 300)",
+                        ][i % 15]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => [`${v.toLocaleString()}명`, "가입자"]} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+          {/* 지점별 순위 테이블 */}
+          {(branchMemberStatsQuery.data?.length ?? 0) > 0 && (
+            <div className="mt-6 border-t border-border/30 pt-4">
+              <p className="text-xs text-muted-foreground mb-3">지점별 순위</p>
+              <div className="space-y-2">
+                {branchMemberStatsQuery.data!.map((row, i) => {
+                  const total = branchMemberStatsQuery.data!.reduce((s, r) => s + r.count, 0);
+                  const pct = total > 0 ? (row.count / total) * 100 : 0;
+                  return (
+                    <div key={row.branch} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-4 text-right">{i + 1}</span>
+                      <span className={`text-xs font-medium w-28 truncate ${row.branch === '미지정' ? 'text-muted-foreground' : 'text-foreground'}`}>{row.branch}</span>
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${row.branch === '미지정' ? 'bg-muted-foreground/30' : 'bg-primary'}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-foreground w-16 text-right">{row.count.toLocaleString()}명 ({pct.toFixed(1)}%)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-card rounded-2xl border border-border/50 p-6">

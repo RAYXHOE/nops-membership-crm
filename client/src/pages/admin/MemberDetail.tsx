@@ -163,12 +163,18 @@ export default function AdminMemberDetail() {
   // Update member notes
   const [notesEdit, setNotesEdit] = useState(false);
   const [notes, setNotes] = useState("");
+  // Update visitedBranch
+  const [branchEdit, setBranchEdit] = useState(false);
+  const [editedBranch, setEditedBranch] = useState("");
+  const branchesQuery = trpc.admin.listBranchCodes.useQuery();
   const updateMemberMutation = trpc.admin.updateMember.useMutation({
     onSuccess: () => {
       utils.admin.getMember.invalidate({ id: memberId });
       setNotesEdit(false);
+      setBranchEdit(false);
       toast.success("저장되었습니다.");
     },
+    onError: (e) => toast.error(e.message),
   });
 
   if (memberQuery.isLoading) {
@@ -249,14 +255,53 @@ export default function AdminMemberDetail() {
           </div>
 
           {/* Visited branch */}
-          {member.visitedBranch && (
-            <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">방문 매장</span>
-              <span className="text-xs px-3 py-1 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                🏪 {member.visitedBranch}
-              </span>
-            </div>
-          )}
+          <div className="mt-4 pt-4 border-t border-border/50">
+            {!branchEdit ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">방문 매장</span>
+                {member.visitedBranch ? (
+                  <span className="text-xs px-3 py-1 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                    🏪 {member.visitedBranch}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground/50">미입력</span>
+                )}
+                <button
+                  onClick={() => { setEditedBranch(member.visitedBranch ?? ""); setBranchEdit(true); }}
+                  className="ml-1 p-1 rounded hover:bg-muted transition-colors"
+                  title="방문 매장 수정"
+                >
+                  <Edit3 className="w-3 h-3 text-muted-foreground" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground">방문 매장</span>
+                <Select value={editedBranch || "__none__"} onValueChange={(v) => setEditedBranch(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="h-7 text-xs w-40">
+                    <SelectValue placeholder="매장 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">미입력</SelectItem>
+                    {(branchesQuery.data ?? []).map((b) => (
+                      <SelectItem key={b.code} value={b.name}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  className="h-7 text-xs px-3"
+                  disabled={updateMemberMutation.isPending}
+                  onClick={() => updateMemberMutation.mutate({ id: memberId, visitedBranch: editedBranch || null })}
+                >
+                  저장
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setBranchEdit(false)}>
+                  취소
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* Consent badges */}
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border/50">
