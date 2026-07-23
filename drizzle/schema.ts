@@ -50,6 +50,8 @@ export const members = mysqlTable("members", {
   status: mysqlEnum("status", ["active", "inactive", "withdrawn"]).default("active").notNull(),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  // 방문/예정 매장 (가입 시 선택 입력)
+  visitedBranch: varchar("visitedBranch", { length: 100 }),
   // 메모
   notes: text("notes"),
   // 적립금

@@ -162,6 +162,7 @@ export const appRouter = router({
           phone: z.string().min(9).max(20),
           birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
           anniversaryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+          visitedBranch: z.string().max(100).optional(),
           privacyConsent: z.boolean(),
           marketingConsent: z.boolean(),
           ipAddress: z.string().optional(),
@@ -230,6 +231,7 @@ export const appRouter = router({
           phone: input.phone,
           birthDate: new Date(input.birthDate),
           anniversaryDate: input.anniversaryDate ? new Date(input.anniversaryDate) : undefined,
+          visitedBranch: input.visitedBranch || undefined,
           privacyConsent: true,
           privacyConsentAt: now,
           privacyConsentContent: PRIVACY_CONSENT_TEXT,
@@ -1309,8 +1311,8 @@ export const appRouter = router({
       return { memberStats, couponStats, purchaseStats };
     }),
 
-    // 지점 코드 목록 조회
-    listBranchCodes: staffProcedure.query(async () => {
+    // 지점 코드 목록 조회 (가입 폼에서도 사용하므로 public)
+    listBranchCodes: publicProcedure.query(async () => {
       // branches 테이블 기반으로 변경 - 활성 지점만 반환
       const activeBranches = await listBranches(true);
       return activeBranches.map((b) => ({ code: b.code, name: b.name }));

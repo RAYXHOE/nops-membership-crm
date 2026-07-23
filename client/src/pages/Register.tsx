@@ -17,6 +17,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PRIVACY_TEXT = `개인정보 수집·이용 동의서
 
@@ -189,9 +196,12 @@ export default function Register() {
     },
   });
 
+  const branchesQuery = trpc.admin.listBranchCodes.useQuery();
+
   const onSubmit = (values: FormValues) => {
     registerMutation.mutate({
       ...values,
+      visitedBranch: visitedBranch || undefined,
       ipAddress: undefined,
       userAgent: navigator.userAgent,
     });
@@ -283,15 +293,30 @@ export default function Register() {
                 방문하신 혹은 방문 예정이신 놉스 매장
                 <span className="ml-1 text-xs text-muted-foreground font-normal">(선택)</span>
               </Label>
-              <Input
-                id="visitedBranch"
-                type="text"
-                placeholder="예: 강남점, 신촌점 등"
-                value={visitedBranch}
-                onChange={(e) => setVisitedBranch(e.target.value)}
-                className="h-11"
-              />
-              <p className="text-xs text-muted-foreground">방문 경험 또는 방문 예정 매장을 자유롭게 입력해 주세요.</p>
+              {branchesQuery.data && branchesQuery.data.length > 0 ? (
+                <Select value={visitedBranch} onValueChange={setVisitedBranch}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="매장을 선택해 주세요" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branchesQuery.data.map((b) => (
+                      <SelectItem key={b.code} value={b.name}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="visitedBranch"
+                  type="text"
+                  placeholder="예: 강남점, 신촌점 등"
+                  value={visitedBranch}
+                  onChange={(e) => setVisitedBranch(e.target.value)}
+                  className="h-11"
+                />
+              )}
+              <p className="text-xs text-muted-foreground">방문 경험 또는 방문 예정 매장을 선택해 주세요.</p>
             </div>
           </div>
 
