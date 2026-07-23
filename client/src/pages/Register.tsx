@@ -178,6 +178,7 @@ export default function Register() {
   const privacyConsent = watch("privacyConsent");
   const marketingConsent = watch("marketingConsent");
   const [birthDisplay, setBirthDisplay] = useState("");
+  const [visitedBranch, setVisitedBranch] = useState("");
 
   const registerMutation = trpc.membership.register.useMutation({
     onSuccess: (data) => {
@@ -219,7 +220,8 @@ export default function Register() {
           <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3 font-semibold">Join Us</p>
           <h1 className="text-3xl font-extrabold text-foreground mb-3">멤버십 가입</h1>
           <p className="text-muted-foreground text-sm">
-            가입 즉시 10% 할인 쿠폰과 콜키지 프리 쿠폰이 발급됩니다
+            가입 즉시 사용 가능한 <span className="font-semibold text-foreground">"콜키지 프리" 쿠폰</span>과<br />
+            마케팅 동의 시 <span className="font-semibold text-foreground">"10% 할인 쿠폰 · 생일 15% 할인 쿠폰"</span>이 발급됩니다.
           </p>
         </div>
 
@@ -273,6 +275,23 @@ export default function Register() {
               />
               <p className="text-xs text-muted-foreground">숫자 8자리 입력 시 자동 포맷 (예: 19901231 → 1990-12-31)</p>
               {errors.birthDate && <p className="text-destructive text-xs">{errors.birthDate.message}</p>}
+            </div>
+
+            {/* 방문 매장 선택 (선택) */}
+            <div className="space-y-2">
+              <Label htmlFor="visitedBranch" className="text-sm font-semibold text-foreground">
+                방문하신 혹은 방문 예정이신 놉스 매장
+                <span className="ml-1 text-xs text-muted-foreground font-normal">(선택)</span>
+              </Label>
+              <Input
+                id="visitedBranch"
+                type="text"
+                placeholder="예: 강남점, 신촌점 등"
+                value={visitedBranch}
+                onChange={(e) => setVisitedBranch(e.target.value)}
+                className="h-11"
+              />
+              <p className="text-xs text-muted-foreground">방문 경험 또는 방문 예정 매장을 자유롭게 입력해 주세요.</p>
             </div>
           </div>
 
