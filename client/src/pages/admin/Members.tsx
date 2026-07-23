@@ -26,6 +26,7 @@ export default function AdminMembers() {
   const [status, setStatus] = useState<"active" | "inactive" | "withdrawn" | "all">("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [noVisitedBranch, setNoVisitedBranch] = useState(false);
   const [page, setPage] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const limit = 20;
@@ -35,12 +36,13 @@ export default function AdminMembers() {
     status: status === "all" ? undefined : status,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
+    noVisitedBranch: noVisitedBranch || undefined,
     limit,
     offset: page * limit,
   });
 
   const exportQuery = trpc.admin.exportMembersRaw.useQuery(
-    { search: search || undefined, status: status === "all" ? undefined : status, startDate: startDate || undefined, endDate: endDate || undefined },
+    { search: search || undefined, status: status === "all" ? undefined : status, startDate: startDate || undefined, endDate: endDate || undefined, noVisitedBranch: noVisitedBranch || undefined },
     { enabled: false }
   );
 
@@ -130,6 +132,18 @@ export default function AdminMembers() {
                 <button type="button" onClick={() => { setStartDate(""); setEndDate(""); setPage(0); }} className="text-xs text-muted-foreground hover:text-foreground underline">전체</button>
               )}
             </div>
+            {/* 방문 매장 미입력 필터 */}
+            <button
+              type="button"
+              onClick={() => { setNoVisitedBranch(!noVisitedBranch); setPage(0); }}
+              className={`h-10 px-3 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                noVisitedBranch
+                  ? "bg-amber-100 border-amber-300 text-amber-800"
+                  : "bg-background border-border text-muted-foreground hover:border-amber-300 hover:text-amber-700"
+              }`}
+            >
+              🏪 방문 매장 미입력{noVisitedBranch && " ✔"}
+            </button>
             <Button type="submit" className="h-10 px-5">검색</Button>
             <Button type="button" variant="outline" className="h-10 px-4 gap-2" onClick={downloadExcel} disabled={isExporting}>
               <Download className="w-4 h-4" />

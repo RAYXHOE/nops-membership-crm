@@ -136,6 +136,7 @@ export async function listMembers(opts?: {
   offset?: number;
   startDate?: Date;
   endDate?: Date;
+  noVisitedBranch?: boolean;
 }) {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
@@ -157,6 +158,10 @@ export async function listMembers(opts?: {
     const end = new Date(opts.endDate);
     end.setHours(23, 59, 59, 999);
     conditions.push(lte(members.joinedAt, end));
+  }
+  if (opts?.noVisitedBranch) {
+    const { isNull } = await import("drizzle-orm");
+    conditions.push(isNull(members.visitedBranch));
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;

@@ -752,6 +752,7 @@ export const appRouter = router({
           offset: z.number().min(0).default(0),
           startDate: z.string().optional(), // YYYY-MM-DD
           endDate: z.string().optional(),   // YYYY-MM-DD
+          noVisitedBranch: z.boolean().optional(), // 방문 매장 미입력 필터
         })
       )
       .query(async ({ input }) => {
@@ -770,6 +771,7 @@ export const appRouter = router({
           status: z.enum(["active", "inactive", "withdrawn"]).optional(),
           startDate: z.string().optional(),
           endDate: z.string().optional(),
+          noVisitedBranch: z.boolean().optional(),
         })
       )
       .query(async ({ input }) => {
