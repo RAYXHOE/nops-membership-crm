@@ -51,7 +51,7 @@ export default function AdminMembers() {
       if (!result.data || result.data.length === 0) { alert("다운로드할 데이터가 없습니다."); return; }
       const XLSX = await import("xlsx");
       const ws = XLSX.utils.json_to_sheet(result.data);
-      ws["!cols"] = [{wch:6},{wch:12},{wch:28},{wch:15},{wch:14},{wch:14},{wch:14},{wch:10},{wch:10},{wch:12},{wch:10}];
+      ws["!cols"] = [{wch:6},{wch:12},{wch:28},{wch:15},{wch:14},{wch:14},{wch:14},{wch:12},{wch:10},{wch:10},{wch:12},{wch:10}];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "회원목록");
       XLSX.writeFile(wb, `NOPS_회원목록_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -185,15 +185,16 @@ export default function AdminMembers() {
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">생년월일</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">마케팅</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">상태</th>
+                  <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden xl:table-cell">방문 매장</th>
                   <th className="text-left px-4 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">가입일</th>
                   <th className="px-4 py-4" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
                 {query.isLoading ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">로딩 중...</td></tr>
+                  <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">로딩 중...</td></tr>
                 ) : members.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">회원이 없습니다</td></tr>
+                  <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">회원이 없습니다</td></tr>
                 ) : (
                   members.map((m) => (
                     <tr key={m.id} className="hover:bg-muted/20 transition-colors">
@@ -212,6 +213,13 @@ export default function AdminMembers() {
                       <td className="px-4 py-4 text-sm text-muted-foreground hidden lg:table-cell">{new Date(m.birthDate).toLocaleDateString("ko-KR")}</td>
                       <td className="px-4 py-4"><span className={`text-xs ${m.marketingConsent ? "text-green-600" : "text-muted-foreground"}`}>{m.marketingConsent ? "동의" : "미동의"}</span></td>
                       <td className="px-4 py-4"><StatusBadge status={m.status} /></td>
+                      <td className="px-4 py-4 text-xs text-muted-foreground hidden xl:table-cell">
+                        {m.visitedBranch ? (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs">{m.visitedBranch}</span>
+                        ) : (
+                          <span className="text-muted-foreground/40">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-4 text-xs text-muted-foreground hidden lg:table-cell">{new Date(m.joinedAt).toLocaleDateString("ko-KR")}</td>
                       <td className="px-4 py-4">
                         <Link href={`/admin/members/${m.id}`}>

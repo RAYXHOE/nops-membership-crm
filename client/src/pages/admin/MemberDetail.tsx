@@ -224,20 +224,42 @@ export default function AdminMemberDetail() {
                 <p className="text-sm text-muted-foreground">{member.phone}</p>
               </div>
             </div>
-            <div className="text-right text-sm">
-              <p className="text-muted-foreground">가입일</p>
-              <p className="font-medium text-foreground">
-                {new Date(member.joinedAt).toLocaleDateString("ko-KR")}
-              </p>
-              <p className="text-muted-foreground mt-2">생년월일</p>
-              <p className="font-medium text-foreground">
-                {new Date(member.birthDate).toLocaleDateString("ko-KR")}
-              </p>
+            <div className="text-right text-sm space-y-2">
+              <div>
+                <p className="text-muted-foreground">가입일</p>
+                <p className="font-medium text-foreground">
+                  {new Date(member.joinedAt).toLocaleDateString("ko-KR")}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">생년월일</p>
+                <p className="font-medium text-foreground">
+                  {new Date(member.birthDate).toLocaleDateString("ko-KR")}
+                </p>
+              </div>
+              {member.anniversaryDate && (
+                <div>
+                  <p className="text-muted-foreground">결혼기념일</p>
+                  <p className="font-medium text-foreground">
+                    {new Date(member.anniversaryDate).toLocaleDateString("ko-KR")}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Visited branch */}
+          {member.visitedBranch && (
+            <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">방문 매장</span>
+              <span className="text-xs px-3 py-1 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                🏪 {member.visitedBranch}
+              </span>
+            </div>
+          )}
+
           {/* Consent badges */}
-          <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border/50">
             <span className={`text-xs px-3 py-1 rounded-full font-medium ${member.privacyConsent ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
               {member.privacyConsent ? "✓ 개인정보 동의" : "✗ 개인정보 미동의"}
             </span>

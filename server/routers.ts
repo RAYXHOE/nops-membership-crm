@@ -787,6 +787,7 @@ export const appRouter = router({
           phone: m.phone,
           birthDate: m.birthDate ? new Date(m.birthDate).toLocaleDateString("ko-KR") : "",
           anniversaryDate: m.anniversaryDate ? new Date(m.anniversaryDate).toLocaleDateString("ko-KR") : "",
+          visitedBranch: m.visitedBranch ?? "",
           marketingConsent: m.marketingConsent ? "동의" : "미동의",
           status: m.status === "active" ? "활성" : m.status === "inactive" ? "비활성" : "탈퇴",
           joinedAt: new Date(m.joinedAt).toLocaleDateString("ko-KR"),
