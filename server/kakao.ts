@@ -219,6 +219,54 @@ export async function sendCorkageReissueAlimtalk(opts: {
   }
 }
 
+// ─── 적립금 만료 D-30 알림톡 ─────────────────────────────────────────────────
+export async function sendPointsExpiryAlimtalk(opts: {
+  to: string;
+  name: string;
+  expiringAmount: number;  // 만료 예정 금액
+  balance: number;         // 현재 잔액
+  expiresAt: Date;         // 만료일
+}) {
+  try {
+    const client = getSolapiClient();
+    await client.send({
+      to: normalizePhone(opts.to),
+      from: normalizePhone(SENDER),
+      kakaoOptions: {
+        pfId: PFID,
+        templateId: TEMPLATE_POINTS, // 적립금 관련 템플릿 재사용
+        variables: {
+          "#{이름}": opts.name,
+          "#{적립금액}": opts.expiringAmount.toLocaleString("ko-KR"),
+          "#{잔액}": opts.balance.toLocaleString("ko-KR"),
+          "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
+        },
+      },
+    } as Parameters<typeof client.send>[0]);
+    console.log(`[Kakao] Points expiry D-30 alimtalk sent to ${opts.to}`);
+    await createAlimtalkLog({
+      type: "points_expiry",
+      recipientPhone: opts.to,
+      recipientName: opts.name,
+      templateId: TEMPLATE_POINTS,
+      status: "success",
+      variables: JSON.stringify({ expiringAmount: opts.expiringAmount, expiresAt: opts.expiresAt }),
+    });
+    return { success: true };
+  } catch (err) {
+    console.error(`[Kakao] Failed to send points expiry alimtalk to ${opts.to}:`, err);
+    await createAlimtalkLog({
+      type: "points_expiry",
+      recipientPhone: opts.to,
+      recipientName: opts.name,
+      templateId: TEMPLATE_POINTS,
+      status: "failed",
+      errorMessage: String(err),
+    });
+    return { success: false, error: String(err) };
+  }
+}
+
 // ─── 적립금 적립 알림톡 ────────────────────────────────────────────────────────
 export async function sendPointsAlimtalk(opts: {
   to: string;

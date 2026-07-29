@@ -799,11 +799,13 @@ import type { InsertPoint } from "../drizzle/schema";
 
 const POINT_RATE = 0.03; // 3% 적립
 const POINT_MIN_USE = 10000; // 최소 사용 단위 1만원
-// 만료 정책: 적립 연도 기준 다음 해 12월 31일 (예: 2026년 적립 → 2027-12-31)
-// 고객이 연말 기준으로 직관적으로 인지 가능, 연초 방문 유도 효과
+// 만료 정책: 적립일로부터 1년 후 (예: 2026-07-29 적립 → 2027-07-29 만료)
+// 1년 내 재방문 유도 + 만료일 직관적 인지 가능
 function calcPointExpiry(from: Date = new Date()): Date {
-  const nextYear = from.getFullYear() + 1;
-  return new Date(nextYear, 11, 31, 23, 59, 59); // 다음 해 12월 31일 23:59:59
+  const expiry = new Date(from);
+  expiry.setFullYear(expiry.getFullYear() + 1);
+  expiry.setHours(23, 59, 59, 0);
+  return expiry; // 적립일 + 1년
 }
 
 /** 구매금액에서 적립금 계산 (원 단위, 100원 미만 절사) */

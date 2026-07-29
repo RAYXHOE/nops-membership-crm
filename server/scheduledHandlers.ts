@@ -9,7 +9,7 @@ import {
   getCouponsExpiringInDays,
 } from "./db";
 import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
-import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk, sendCorkageReissueAlimtalk } from "./kakao";
+import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk, sendCorkageReissueAlimtalk, sendPointsExpiryAlimtalk } from "./kakao";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -526,6 +526,88 @@ export async function checkPointsMissingHandler(req: Request, res: Response) {
     return res.json({ ok: true, missing: items.length, members: items.map((i) => i.memberName) });
   } catch (err) {
     console.error("[PointsMissing] Error:", err);
+    return res.status(500).json({ error: String(err) });
+  }
+}
+
+/**
+ * POST /api/scheduled/points-expiry-reminder
+ * 매일 오전 10시(KST) = UTC 1시 실행
+ * 적립금 만료 D-30 회원에게 카카오 알림톡 발송
+ */
+export async function pointsExpiryReminderHandler(req: Request, res: Response) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user.isCron) {
+      return res.status(403).json({ error: "cron-only endpoint" });
+    }
+
+    const { getDb } = await import("./db");
+    const { sql } = await import("drizzle-orm");
+    const db = await getDb();
+    if (!db) return res.status(500).json({ error: "DB not available" });
+
+    // D-30 만료 예정 회원 조회
+    // 조건: 적립금 잔액 > 0 AND 적립 이력 중 30일 이내 만료예정건 존재
+    // 중복 발송 방지: 오늘 이미 points_expiry 알림톡 발송한 회원 제외
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadline = new Date(today);
+    deadline.setDate(deadline.getDate() + 30);
+
+    const result = await db.execute(sql`
+      SELECT
+        m.id, m.name, m.phone, m.email, m.pointBalance,
+        MIN(p.expiresAt) AS earliest_expiry,
+        SUM(CASE WHEN p.expiresAt <= ${deadline} AND p.expiresAt > NOW() AND p.type='earn' THEN p.amount ELSE 0 END) AS expiring_amount
+      FROM members m
+      JOIN points p ON p.memberId = m.id AND p.type = 'earn' AND p.expiresAt <= ${deadline} AND p.expiresAt > NOW()
+      WHERE m.status = 'active'
+        AND m.pointBalance > 0
+        AND m.phone IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM alimtalk_logs al
+          WHERE al.recipientPhone = m.phone
+            AND al.type = 'points_expiry'
+            AND al.sentAt >= ${today}
+            AND al.status = 'success'
+        )
+      GROUP BY m.id, m.name, m.phone, m.email, m.pointBalance
+      HAVING expiring_amount > 0
+      ORDER BY earliest_expiry ASC
+      LIMIT 200
+    `);
+
+    const rows = Array.isArray(result[0]) ? result[0] as Record<string, unknown>[] : [];
+
+    if (rows.length === 0) {
+      console.log("[PointsExpiry] D-30 만료 예정 회원 없음");
+      return res.json({ ok: true, sent: 0 });
+    }
+
+    let sent = 0;
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      try {
+        await sendPointsExpiryAlimtalk({
+          to: String(row.phone),
+          name: String(row.name ?? "고객"),
+          expiringAmount: Number(row.expiring_amount ?? 0),
+          balance: Number(row.pointBalance ?? 0),
+          expiresAt: new Date(row.earliest_expiry as string),
+        });
+        sent++;
+      } catch (err) {
+        errors.push(`[${row.id}] ${row.name}: ${String(err)}`);
+        console.error(`[PointsExpiry] 알림톡 실패 [${row.id}] ${row.name}:`, err);
+      }
+    }
+
+    console.log(`[PointsExpiry] D-30 알림톡 ${sent}/${rows.length}명 발송 완료`);
+    return res.json({ ok: true, sent, total: rows.length, errors });
+  } catch (err) {
+    console.error("[PointsExpiry] Error:", err);
     return res.status(500).json({ error: String(err) });
   }
 }

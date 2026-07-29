@@ -8,7 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
-import { birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler, corkageReissueHandler, cleanupExpiredOtpsHandler, expirePointsHandler, checkMissingCouponsHandler, checkPointsMissingHandler } from "../scheduledHandlers";
+import { birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler, corkageReissueHandler, cleanupExpiredOtpsHandler, expirePointsHandler, checkMissingCouponsHandler, checkPointsMissingHandler, pointsExpiryReminderHandler } from "../scheduledHandlers";
 import { dbBackupHandler } from "../backupHandler";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -48,6 +48,7 @@ async function startServer() {
   app.post("/api/scheduled/check-missing-coupons", checkMissingCouponsHandler);
   app.post("/api/scheduled/db-backup", dbBackupHandler);
   app.post("/api/scheduled/check-points-missing", checkPointsMissingHandler);
+  app.post("/api/scheduled/points-expiry-reminder", pointsExpiryReminderHandler);
 
   // 테스트 알림톡 발송 (관리자 전용)
   app.post("/api/admin/test-alimtalk", async (req, res) => {
