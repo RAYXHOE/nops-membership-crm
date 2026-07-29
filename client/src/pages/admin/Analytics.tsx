@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
-import { BarChart3, Users, Tag, TrendingUp, Percent, Download, Calendar, MapPin } from "lucide-react";
+import { BarChart3, Users, Tag, TrendingUp, Percent, Download, Calendar, MapPin, Coins, AlertTriangle } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line,
@@ -79,6 +79,7 @@ export default function AdminAnalytics() {
 
   const branchMemberStatsQuery = trpc.admin.getBranchMemberStats.useQuery();
   const branchCouponStatsQuery = trpc.admin.getBranchCouponStats.useQuery();
+  const pointsStatsQuery = trpc.admin.getPointsStats.useQuery();
 
   const membersPeriodQuery = trpc.admin.getMembersByPeriod.useQuery(
     { startDate: start, endDate: end, groupBy },
@@ -560,6 +561,132 @@ export default function AdminAnalytics() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* ─── 적립금 현황 ──────────────────────────────────────────────────── */}
+        <div className="bg-card rounded-2xl border border-border/50 p-6 mb-6">
+          <SectionTitle icon={Coins} title="적립금 누적 및 관리 현황" />
+          {pointsStatsQuery.isLoading ? (
+            <div className="h-32 flex items-center justify-center text-muted-foreground text-sm">로딩 중...</div>
+          ) : !pointsStatsQuery.data ? (
+            <div className="h-32 flex items-center justify-center text-muted-foreground text-sm">데이터 없음</div>
+          ) : (() => {
+            const pts = pointsStatsQuery.data!;
+            const monthlyData = pts.monthly.map((m) => ({
+              month: String(m.month).slice(5),
+              적립: Number(m.earned),
+              사용: Number(m.used),
+            }));
+            const distData = pts.distribution.map((d) => ({
+              name: String(d.rangeLabel),
+              value: Number(d.cnt),
+            }));
+            const DIST_COLORS = ["oklch(0.82 0.02 60)","oklch(0.68 0.07 55)","oklch(0.55 0.10 50)","oklch(0.45 0.12 45)","oklch(0.35 0.14 40)"];
+            return (
+              <>
+                {/* KPI 카드 */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  {[
+                    { label: "전체 잔액 합계", value: `${pts.totalBalance.toLocaleString()}원`, sub: `${pts.withBalance}명 보유` },
+                    { label: "누적 적립", value: `${pts.totalEarned.toLocaleString()}원`, sub: `${pts.earnCount}건` },
+                    { label: "전체 사용", value: `${pts.totalUsed.toLocaleString()}원`, sub: `${pts.useCount}건` },
+                    { label: "평균 잔액", value: `${pts.avgBalance.toLocaleString()}원`, sub: `최고 ${pts.maxBalance.toLocaleString()}원` },
+                  ].map((kpi) => (
+                    <div key={kpi.label} className="bg-muted/30 rounded-xl p-4">
+                      <p className="text-xs text-muted-foreground mb-1">{kpi.label}</p>
+                      <p className="text-lg font-bold text-foreground">{kpi.value}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{kpi.sub}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 알림 배지 */}
+                <div className="flex flex-wrap gap-3 mb-6">
+                  {pts.missingEarnCount > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                      <span className="text-xs text-red-700 font-medium">적립 누락 {pts.missingEarnCount}건 감지 — 관리자 확인 필요</span>
+                    </div>
+                  )}
+                  {pts.expiringAmount > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-xs text-amber-700 font-medium">90일 내 만료 예정: {pts.expiringAmount.toLocaleString()}원 ({pts.expiringCount}건)</span>
+                    </div>
+                  )}
+                  {pts.missingEarnCount === 0 && pts.expiringAmount === 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                      <span className="text-xs text-green-700 font-medium">✅ 누락 없음 · 만료 예정 없음</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                  {/* 월별 적립/사용 차트 */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-4">월별 적립 / 사용 (최근 6개월)</p>
+                    {monthlyData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={monthlyData} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.88 0.01 60)" />
+                          <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${Math.round(v / 1000)}수`} />
+                          <Tooltip formatter={(v: number) => [`${v.toLocaleString()}원`]} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Bar dataKey="적립" fill="oklch(0.52 0.09 55)" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="사용" fill="oklch(0.62 0.07 200)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">데이터 없음</div>
+                    )}
+                  </div>
+
+                  {/* 잔액 구간별 분포 */}
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-4">잔액 구간별 회원 분포</p>
+                    {distData.some((d) => d.value > 0) ? (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie data={distData} cx="50%" cy="50%" innerRadius={45} outerRadius={80}
+                            dataKey="value"
+                            label={({ name, percent }: { name: string; percent: number }) =>
+                              percent > 0.05 ? `${name} ${Math.round(percent * 100)}%` : ""}
+                            labelLine={false}>
+                            {distData.map((_, i) => (
+                              <Cell key={i} fill={DIST_COLORS[i % DIST_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v: number) => [`${v}명`, "회원"]} />
+                          <Legend wrapperStyle={{ fontSize: 10 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">데이터 없음</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 적립 요약 테이블 */}
+                <div className="mt-6 border-t border-border/30 pt-4">
+                  <p className="text-xs text-muted-foreground mb-3">적립금 요약 (정책: 결제금액 3% 적립, 1만원 단위 사용 가능)</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { label: "누적 적립", value: `${pts.totalEarned.toLocaleString()}원` },
+                      { label: "취소 회수", value: `${pts.totalCancelled.toLocaleString()}원` },
+                      { label: "사용 차감", value: `${pts.totalUsed.toLocaleString()}원` },
+                      { label: "만료 차감", value: `${pts.totalExpired.toLocaleString()}원` },
+                    ].map((item) => (
+                      <div key={item.label} className="bg-muted/20 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground">{item.label}</p>
+                        <p className="text-sm font-semibold text-foreground mt-0.5">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         <div className="bg-card rounded-2xl border border-border/50 p-6">

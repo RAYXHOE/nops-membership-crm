@@ -1798,6 +1798,109 @@ export const appRouter = router({
         return { earned: calcEarnPoints(input.finalAmount) };
       }),
 
+    // 적립금 종합 통계
+    getPointsStats: staffProcedure.query(async () => {
+      const db = await (await import("./db")).getDb();
+      if (!db) return null;
+      const { sql } = await import("drizzle-orm");
+
+      // 1. 전체 요약 (cancel 포함)
+      const summaryResult = await db.execute(sql`
+        SELECT
+          SUM(CASE WHEN type='earn' THEN amount ELSE 0 END) AS totalEarned,
+          SUM(CASE WHEN type='use' THEN amount ELSE 0 END) AS totalUsed,
+          SUM(CASE WHEN type='expire' THEN amount ELSE 0 END) AS totalExpired,
+          SUM(CASE WHEN type='cancel' THEN amount ELSE 0 END) AS totalCancelled,
+          COUNT(CASE WHEN type='earn' THEN 1 END) AS earnCount,
+          COUNT(CASE WHEN type='use' THEN 1 END) AS useCount
+        FROM points
+      `);
+      const s = (Array.isArray(summaryResult[0]) ? summaryResult[0][0] : summaryResult[0]) as Record<string, unknown>;
+
+      // 2. 실제 잔액 합계 (members.pointBalance 기준)
+      const balResult = await db.execute(sql`
+        SELECT
+          SUM(pointBalance) AS totalBalance,
+          COUNT(CASE WHEN pointBalance > 0 THEN 1 END) AS withBalance,
+          MAX(pointBalance) AS maxBalance,
+          AVG(CASE WHEN pointBalance > 0 THEN pointBalance END) AS avgBalance
+        FROM members WHERE status = 'active'
+      `);
+      const b = (Array.isArray(balResult[0]) ? balResult[0][0] : balResult[0]) as Record<string, unknown>;
+
+      // 3. 월별 적립/사용 추이 (최근 6개월)
+      const [monthly] = await db.execute(sql`
+        SELECT
+          DATE_FORMAT(createdAt, '%Y-%m') AS month,
+          SUM(CASE WHEN type='earn' THEN amount ELSE 0 END) AS earned,
+          SUM(CASE WHEN type='use' THEN amount ELSE 0 END) AS used,
+          COUNT(CASE WHEN type='earn' THEN 1 END) AS earnCount,
+          COUNT(CASE WHEN type='use' THEN 1 END) AS useCount
+        FROM points
+        WHERE createdAt >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        GROUP BY DATE_FORMAT(createdAt, '%Y-%m')
+        ORDER BY month ASC
+      `);
+
+      // 4. 잔액 구간별 분포
+      const [distribution] = await db.execute(sql`
+        SELECT
+          CASE
+            WHEN pointBalance = 0 THEN '0원'
+            WHEN pointBalance < 5000 THEN '1~4,999원'
+            WHEN pointBalance < 10000 THEN '5,000~9,999원'
+            WHEN pointBalance < 30000 THEN '10,000~29,999원'
+            ELSE '30,000원 이상'
+          END AS rangeLabel,
+          COUNT(*) AS cnt
+        FROM members
+        WHERE status = 'active'
+        GROUP BY rangeLabel
+        ORDER BY MIN(pointBalance)
+      `);
+
+      // 5. 90일 이내 만료 예정
+      const expiringResult = await db.execute(sql`
+        SELECT COUNT(*) AS cnt, COALESCE(SUM(amount), 0) AS total
+        FROM points
+        WHERE type = 'earn'
+          AND expiresAt IS NOT NULL
+          AND expiresAt <= DATE_ADD(NOW(), INTERVAL 90 DAY)
+          AND expiresAt > NOW()
+      `);
+      const exp = (Array.isArray(expiringResult[0]) ? expiringResult[0][0] : expiringResult[0]) as Record<string, unknown>;
+
+      // 6. 적립 누락 건수
+      const missingResult = await db.execute(sql`
+        SELECT
+          COUNT(DISTINCT p.id) AS purchaseCount,
+          COUNT(DISTINCT pt.purchaseId) AS earnCount
+        FROM purchases p
+        LEFT JOIN points pt ON pt.purchaseId = p.id AND pt.type = 'earn'
+        WHERE p.finalAmount > 0
+      `);
+      const mis = (Array.isArray(missingResult[0]) ? missingResult[0][0] : missingResult[0]) as Record<string, unknown>;
+
+      return {
+        totalEarned: Number(s.totalEarned ?? 0),
+        totalUsed: Number(s.totalUsed ?? 0),
+        totalExpired: Number(s.totalExpired ?? 0),
+        totalCancelled: Number(s.totalCancelled ?? 0),
+        earnCount: Number(s.earnCount ?? 0),
+        useCount: Number(s.useCount ?? 0),
+        totalBalance: Number(b.totalBalance ?? 0),
+        withBalance: Number(b.withBalance ?? 0),
+        maxBalance: Number(b.maxBalance ?? 0),
+        avgBalance: Math.round(Number(b.avgBalance ?? 0)),
+        monthly: (Array.isArray(monthly) ? monthly : []) as { month: string; earned: number; used: number; earnCount: number; useCount: number }[],
+        distribution: (Array.isArray(distribution) ? distribution : []) as { rangeLabel: string; cnt: number }[],
+        expiringCount: Number(exp.cnt ?? 0),
+        expiringAmount: Number(exp.total ?? 0),
+        purchaseCount: Number(mis.purchaseCount ?? 0),
+        missingEarnCount: Number(mis.purchaseCount ?? 0) - Number(mis.earnCount ?? 0),
+      };
+    }),
+
     // 지점별 쿠폰 사용 통계
     getBranchCouponStats: staffProcedure.query(async () => {
       const db = await (await import("./db")).getDb();
