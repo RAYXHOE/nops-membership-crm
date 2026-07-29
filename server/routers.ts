@@ -1798,6 +1798,99 @@ export const appRouter = router({
         return { earned: calcEarnPoints(input.finalAmount) };
       }),
 
+    // 적립금 관리: 회원별 적립금 목록
+    listMembersPoints: staffProcedure
+      .input(z.object({
+        search: z.string().optional(),
+        hasBalance: z.boolean().optional(), // 잔액 보유자만
+        expiringDays: z.number().optional(), // N일 이내 만료 예정
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+        sortBy: z.enum(["balance_desc", "balance_asc", "joined_desc", "expiry_asc"]).default("balance_desc"),
+      }))
+      .query(async ({ input }) => {
+        const db = await (await import("./db")).getDb();
+        if (!db) return { items: [], total: 0 };
+        const { sql, and, like, or, gt, lte, isNotNull, desc, asc } = await import("drizzle-orm");
+        const { members, points } = await import("../drizzle/schema");
+
+        // 만료 예정일 계산
+        const expiryDeadline = input.expiringDays
+          ? new Date(Date.now() + input.expiringDays * 24 * 60 * 60 * 1000)
+          : null;
+
+        // 회원 목록 기본 조건
+        const conditions: ReturnType<typeof like>[] = [
+          sql`m.status != 'withdrawn'` as unknown as ReturnType<typeof like>,
+        ];
+        if (input.search) {
+          conditions.push(or(
+            like(members.name, `%${input.search}%`),
+            like(members.email, `%${input.search}%`),
+            like(members.phone, `%${input.search}%`)
+          ) as unknown as ReturnType<typeof like>);
+        }
+        if (input.hasBalance) {
+          conditions.push(gt(members.pointBalance, 0) as unknown as ReturnType<typeof like>);
+        }
+
+        // 정렬 기준
+        const orderMap = {
+          balance_desc: sql`m.pointBalance DESC`,
+          balance_asc: sql`m.pointBalance ASC`,
+          joined_desc: sql`m.joinedAt DESC`,
+          expiry_asc: sql`earliest_expiry ASC`,
+        };
+
+        // 회원별 적립금 + 최조 만료일 조회
+        const [rows, countResult] = await Promise.all([
+          db.execute(sql.raw(`
+            SELECT
+              m.id, m.name, m.email, m.phone, m.joinedAt,
+              m.pointBalance,
+              MIN(CASE WHEN p.type='earn' AND p.expiresAt > NOW() THEN p.expiresAt END) AS earliest_expiry,
+              SUM(CASE WHEN p.type='earn' THEN p.amount ELSE 0 END) AS total_earned,
+              SUM(CASE WHEN p.type='use' THEN p.amount ELSE 0 END) AS total_used,
+              COUNT(CASE WHEN p.type='earn' THEN 1 END) AS earn_count
+            FROM members m
+            LEFT JOIN points p ON p.memberId = m.id
+            WHERE m.status != 'withdrawn'
+              ${input.search ? `AND (m.name LIKE '%${input.search.replace(/'/g, "''")}%' OR m.email LIKE '%${input.search.replace(/'/g, "''")}%' OR m.phone LIKE '%${input.search.replace(/'/g, "''")}%')` : ""}
+              ${input.hasBalance ? "AND m.pointBalance > 0" : ""}
+              ${expiryDeadline ? `AND EXISTS (SELECT 1 FROM points p2 WHERE p2.memberId = m.id AND p2.type='earn' AND p2.expiresAt <= '${expiryDeadline.toISOString().slice(0,19)}' AND p2.expiresAt > NOW())` : ""}
+            GROUP BY m.id, m.name, m.email, m.phone, m.joinedAt, m.pointBalance
+            ORDER BY ${input.sortBy === "balance_desc" ? "m.pointBalance DESC" : input.sortBy === "balance_asc" ? "m.pointBalance ASC" : input.sortBy === "expiry_asc" ? "earliest_expiry ASC" : "m.joinedAt DESC"}
+            LIMIT ${input.limit} OFFSET ${input.offset}
+          `)),
+          db.execute(sql.raw(`
+            SELECT COUNT(DISTINCT m.id) AS cnt
+            FROM members m
+            WHERE m.status != 'withdrawn'
+              ${input.search ? `AND (m.name LIKE '%${input.search.replace(/'/g, "''")}%' OR m.email LIKE '%${input.search.replace(/'/g, "''")}%' OR m.phone LIKE '%${input.search.replace(/'/g, "''")}%')` : ""}
+              ${input.hasBalance ? "AND m.pointBalance > 0" : ""}
+          `)),
+        ]);
+
+        const items = (Array.isArray(rows[0]) ? rows[0] : []) as Record<string, unknown>[];
+        const total = Number((Array.isArray(countResult[0]) ? countResult[0][0] : countResult[0] as unknown as Record<string, unknown>)?.cnt ?? 0);
+
+        return {
+          items: items.map((r) => ({
+            id: Number(r.id),
+            name: String(r.name ?? ""),
+            email: String(r.email ?? ""),
+            phone: String(r.phone ?? ""),
+            joinedAt: r.joinedAt as Date,
+            pointBalance: Number(r.pointBalance ?? 0),
+            earliestExpiry: r.earliest_expiry ? new Date(r.earliest_expiry as string) : null,
+            totalEarned: Number(r.total_earned ?? 0),
+            totalUsed: Number(r.total_used ?? 0),
+            earnCount: Number(r.earn_count ?? 0),
+          })),
+          total,
+        };
+      }),
+
     // 적립금 종합 통계
     getPointsStats: staffProcedure.query(async () => {
       const db = await (await import("./db")).getDb();

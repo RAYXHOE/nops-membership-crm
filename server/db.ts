@@ -799,7 +799,12 @@ import type { InsertPoint } from "../drizzle/schema";
 
 const POINT_RATE = 0.03; // 3% 적립
 const POINT_MIN_USE = 10000; // 최소 사용 단위 1만원
-const POINT_EXPIRE_YEARS = 2; // 유효기간 2년
+// 만료 정책: 적립 연도 기준 다음 해 12월 31일 (예: 2026년 적립 → 2027-12-31)
+// 고객이 연말 기준으로 직관적으로 인지 가능, 연초 방문 유도 효과
+function calcPointExpiry(from: Date = new Date()): Date {
+  const nextYear = from.getFullYear() + 1;
+  return new Date(nextYear, 11, 31, 23, 59, 59); // 다음 해 12월 31일 23:59:59
+}
 
 /** 구매금액에서 적립금 계산 (원 단위, 100원 미만 절사) */
 export function calcEarnPoints(amount: number): number {
@@ -818,9 +823,8 @@ export async function earnPoints(memberId: number, purchaseAmount: number, purch
   if (!member) throw new Error("회원을 찾을 수 없습니다.");
   const newBalance = (member.pointBalance ?? 0) + earnAmount;
 
-  // 만료일 계산 (2년 후)
-  const expiresAt = new Date();
-  expiresAt.setFullYear(expiresAt.getFullYear() + POINT_EXPIRE_YEARS);
+  // 만료일 계산 (적립 연도 기준 다음 해 12월 31일)
+  const expiresAt = calcPointExpiry(new Date());
 
   // 이력 기록
   await db.insert(points).values({

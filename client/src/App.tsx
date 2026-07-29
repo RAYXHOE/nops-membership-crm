@@ -22,6 +22,7 @@ import AdminBranches from "./pages/admin/Branches";
 import AdminAlimtalkLogs from "./pages/admin/AlimtalkLogs";
 import AdminInquiries from "./pages/admin/Inquiries";
 import AdminCheckin from "./pages/admin/Checkin";
+import AdminPoints from "./pages/admin/Points";
 
 function Router() {
   return (
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/admin/members/:id" component={AdminMemberDetail} />
       <Route path="/admin/coupons" component={AdminCoupons} />
       <Route path="/admin/analytics" component={AdminAnalytics} />
+      <Route path="/admin/points" component={AdminPoints} />
       <Route path="/admin/alimtalk" component={AdminAlimtalkLogs} />
       <Route path="/admin/checkin" component={AdminCheckin} />
       <Route path="/admin/inquiries" component={AdminInquiries} />
