@@ -3,6 +3,7 @@ import AdminLayout from "@/components/AdminLayout";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
 import { Search, Users, ChevronRight, Filter, Download, Calendar } from "lucide-react";
+import { buildMemberCsv } from "@shared/memberCsv";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ export default function AdminMembers() {
   const [noVisitedBranch, setNoVisitedBranch] = useState(false);
   const [page, setPage] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [isCsvExporting, setIsCsvExporting] = useState(false);
   const limit = 20;
 
   const query = trpc.admin.listMembers.useQuery({
@@ -46,6 +48,11 @@ export default function AdminMembers() {
     { enabled: false }
   );
 
+  const recentMembersCsvQuery = trpc.admin.exportMembersRaw.useQuery(
+    { startDate: "2026-08-13" },
+    { enabled: false }
+  );
+
   const downloadExcel = async () => {
     setIsExporting(true);
     try {
@@ -59,6 +66,38 @@ export default function AdminMembers() {
       XLSX.writeFile(wb, `NOPS_회원목록_${new Date().toISOString().slice(0,10)}.xlsx`);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const downloadRecentMembersCsv = async () => {
+    setIsCsvExporting(true);
+    try {
+      const result = await recentMembersCsvQuery.refetch();
+      if (!result.data || result.data.length === 0) {
+        alert("2026년 8월 13일 이후 가입한 회원이 없습니다.");
+        return;
+      }
+
+      const csv = buildMemberCsv(result.data.map((member) => ({
+        name: member.name,
+        email: member.email,
+        phone: member.phone,
+        birthDate: member.birthDate,
+        joinedAt: member.joinedAt,
+        marketingConsent: member.marketingConsent,
+        visitedBranch: member.visitedBranch,
+      })));
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "NOPS_회원_2026-08-13_이후.csv";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsCsvExporting(false);
     }
   };
 
@@ -148,6 +187,17 @@ export default function AdminMembers() {
             <Button type="button" variant="outline" className="h-10 px-4 gap-2" onClick={downloadExcel} disabled={isExporting}>
               <Download className="w-4 h-4" />
               {isExporting ? "다운로드 중..." : "엑셀"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 px-4 gap-2 border-primary/30 text-primary hover:bg-primary/5"
+              onClick={downloadRecentMembersCsv}
+              disabled={isCsvExporting}
+              title="2026년 8월 13일 이후 가입한 회원을 CSV로 내려받습니다"
+            >
+              <Download className="w-4 h-4" />
+              {isCsvExporting ? "CSV 생성 중..." : "8/13 이후 CSV"}
             </Button>
           </form>
         </div>
