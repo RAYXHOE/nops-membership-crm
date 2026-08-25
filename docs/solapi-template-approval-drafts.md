@@ -136,3 +136,11 @@ Mr. 놉스 올림
 | `SOLAPI_TEMPLATE_ANNIVERSARY` | NOPS 결혼기념일 쿠폰 발급 | `KA01TP260825090226041mnhFUOaAJe5` | PENDING |
 | `SOLAPI_TEMPLATE_CORKAGE` | NOPS 콜키지 프리 쿠폰 재발급 | `KA01TP260825090226941JT4ubZqrcRx` | PENDING |
 | `SOLAPI_TEMPLATE_POINTS_EXPIRY` | NOPS 적립금 만료 예정 안내 | `KA01TP260825090227818UvS6gnzuaLb` | PENDING |
+
+## 브랜드 템플릿 운영 조건
+
+콜키지 재발급과 결혼기념일 쿠폰은 알림톡 템플릿과 다른 **브랜드 템플릿**으로 관리한다. 브랜드 메시지는 `brandTemplateId`를 사용하므로 알림톡의 `templateId`로 발송할 수 없다.
+
+브랜드 메시지는 광고성 메시지로 취급한다. 기본 발송 대상은 카카오톡 채널을 추가한 고객이며, 채널 친구가 아닌 마케팅 수신 동의자에게 확대 발송하려면 카카오 승인·채널 친구 5만 명·080 수신거부 번호 등의 별도 조건이 필요하다. 또한 광고 메시지는 20:50부터 다음 날 08:00까지 발송하면 안 된다. 따라서 CRM 연결 전에는 **마케팅 동의 여부, 채널 친구/확장 발송 권한, 080 수신거부 문구, 발송 시간 제한**을 서버에서 모두 검증해야 한다.
+
+참고: [SOLAPI 브랜드 메시지 가이드](https://solapi.com/kakao-bms-guide), [SOLAPI 브랜드 메시지 API 안내](https://solapi.com/developers/api/kakao)
