@@ -18,6 +18,15 @@ const TEMPLATE_EXPIRY = process.env.SOLAPI_TEMPLATE_EXPIRY ?? "";
 const TEMPLATE_ANNIVERSARY = process.env.SOLAPI_TEMPLATE_ANNIVERSARY ?? "";
 const TEMPLATE_CORKAGE = process.env.SOLAPI_TEMPLATE_CORKAGE ?? "";
 const TEMPLATE_POINTS = process.env.SOLAPI_TEMPLATE_POINTS ?? "";
+const TEMPLATE_BIRTHDAY = process.env.SOLAPI_TEMPLATE_BIRTHDAY ?? "";
+const TEMPLATE_POINTS_EXPIRY = process.env.SOLAPI_TEMPLATE_POINTS_EXPIRY ?? "";
+
+function requireTemplateId(templateId: string, label: string): string {
+  if (!templateId) {
+    throw new Error(`SOLAPI_TEMPLATE_${label}이 설정되지 않았습니다. 승인된 전용 알림톡 템플릿 ID를 등록해 주세요.`);
+  }
+  return templateId;
+}
 
 // 전화번호 정규화 (하이픈 제거, 국제번호 형식 변환)
 function normalizePhone(phone: string): string {
@@ -128,26 +137,29 @@ export async function sendAnniversaryAlimtalk(opts: {
 }) {
   try {
     const client = getSolapiClient();
+    const templateId = requireTemplateId(TEMPLATE_ANNIVERSARY, "ANNIVERSARY");
     await client.send({
       to: normalizePhone(opts.to),
       from: normalizePhone(SENDER),
       kakaoOptions: {
         pfId: PFID,
-        templateId: TEMPLATE_ANNIVERSARY || TEMPLATE_EXPIRY,
+        templateId,
         variables: {
           "#{이름}": opts.name,
           "#{쿠폰명}": `결혼기념일 ${opts.discountPercent}% 할인 쿠폰`,
+          "#{할인율}": String(opts.discountPercent),
+          "#{쿠폰코드}": opts.couponCode,
           "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
           "#{링크}": "https://membership.nops.kr/mypage",
         },
       },
     } as Parameters<typeof client.send>[0]);
     console.log(`[Kakao] Anniversary alimtalk sent to ${opts.to}`);
-    await createAlimtalkLog({ type: "anniversary", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_ANNIVERSARY || TEMPLATE_EXPIRY, status: "success" });
+    await createAlimtalkLog({ type: "anniversary", recipientPhone: opts.to, recipientName: opts.name, templateId, status: "success" });
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send anniversary alimtalk to ${opts.to}:`, err);
-    await createAlimtalkLog({ type: "anniversary", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_ANNIVERSARY || TEMPLATE_EXPIRY, status: "failed", errorMessage: String(err) });
+    await createAlimtalkLog({ type: "anniversary", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_ANNIVERSARY || "", status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }
@@ -162,26 +174,29 @@ export async function sendBirthdayAlimtalk(opts: {
 }) {
   try {
     const client = getSolapiClient();
+    const templateId = requireTemplateId(TEMPLATE_BIRTHDAY, "BIRTHDAY");
     await client.send({
       to: normalizePhone(opts.to),
       from: normalizePhone(SENDER),
       kakaoOptions: {
         pfId: PFID,
-        templateId: TEMPLATE_EXPIRY, // 생일 쿠폰은 만료 알림 템플릿 변수 구조와 유사
+        templateId,
         variables: {
           "#{이름}": opts.name,
           "#{쿠폰명}": `생일 ${opts.discountPercent}% 할인 쿠폰`,
+          "#{할인율}": String(opts.discountPercent),
+          "#{쿠폰코드}": opts.couponCode,
           "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
           "#{링크}": "https://membership.nops.kr/mypage",
         },
       },
     } as Parameters<typeof client.send>[0]);
     console.log(`[Kakao] Birthday alimtalk sent to ${opts.to}`);
-    await createAlimtalkLog({ type: "birthday", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_EXPIRY, status: "success" });
+    await createAlimtalkLog({ type: "birthday", recipientPhone: opts.to, recipientName: opts.name, templateId, status: "success" });
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send birthday alimtalk to ${opts.to}:`, err);
-    await createAlimtalkLog({ type: "birthday", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_EXPIRY, status: "failed", errorMessage: String(err) });
+    await createAlimtalkLog({ type: "birthday", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_BIRTHDAY || "", status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }
@@ -195,14 +210,16 @@ export async function sendCorkageReissueAlimtalk(opts: {
 }) {
   try {
     const client = getSolapiClient();
+    const templateId = requireTemplateId(TEMPLATE_CORKAGE, "CORKAGE");
     await client.send({
       to: normalizePhone(opts.to),
       from: normalizePhone(SENDER),
       kakaoOptions: {
         pfId: PFID,
-        templateId: TEMPLATE_CORKAGE || TEMPLATE_EXPIRY,
+        templateId,
         variables: {
           "#{이름}": opts.name,
+          "#{쿠폰명}": "콜키지 프리 쿠폰",
           "#{쿠폰코드}": opts.couponCode,
           "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
           "#{링크}": "https://membership.nops.kr/mypage",
@@ -210,11 +227,11 @@ export async function sendCorkageReissueAlimtalk(opts: {
       },
     } as Parameters<typeof client.send>[0]);
     console.log(`[Kakao] Corkage reissue alimtalk sent to ${opts.to}`);
-    await createAlimtalkLog({ type: "corkage", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_CORKAGE || TEMPLATE_EXPIRY, status: "success" });
+    await createAlimtalkLog({ type: "corkage", recipientPhone: opts.to, recipientName: opts.name, templateId, status: "success" });
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send corkage reissue alimtalk to ${opts.to}:`, err);
-    await createAlimtalkLog({ type: "corkage", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_CORKAGE || TEMPLATE_EXPIRY, status: "failed", errorMessage: String(err) });
+    await createAlimtalkLog({ type: "corkage", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_CORKAGE || "", status: "failed", errorMessage: String(err) });
     return { success: false, error: String(err) };
   }
 }
@@ -229,15 +246,16 @@ export async function sendPointsExpiryAlimtalk(opts: {
 }) {
   try {
     const client = getSolapiClient();
+    const templateId = requireTemplateId(TEMPLATE_POINTS_EXPIRY, "POINTS_EXPIRY");
     await client.send({
       to: normalizePhone(opts.to),
       from: normalizePhone(SENDER),
       kakaoOptions: {
         pfId: PFID,
-        templateId: TEMPLATE_POINTS, // 적립금 관련 템플릿 재사용
+        templateId,
         variables: {
           "#{이름}": opts.name,
-          "#{적립금액}": opts.expiringAmount.toLocaleString("ko-KR"),
+          "#{만료예정적립금}": opts.expiringAmount.toLocaleString("ko-KR"),
           "#{잔액}": opts.balance.toLocaleString("ko-KR"),
           "#{만료일}": new Date(opts.expiresAt).toLocaleDateString("ko-KR"),
         },
@@ -248,7 +266,7 @@ export async function sendPointsExpiryAlimtalk(opts: {
       type: "points_expiry",
       recipientPhone: opts.to,
       recipientName: opts.name,
-      templateId: TEMPLATE_POINTS,
+      templateId,
       status: "success",
       variables: JSON.stringify({ expiringAmount: opts.expiringAmount, expiresAt: opts.expiresAt }),
     });
@@ -259,7 +277,7 @@ export async function sendPointsExpiryAlimtalk(opts: {
       type: "points_expiry",
       recipientPhone: opts.to,
       recipientName: opts.name,
-      templateId: TEMPLATE_POINTS,
+      templateId: TEMPLATE_POINTS_EXPIRY || "",
       status: "failed",
       errorMessage: String(err),
     });
