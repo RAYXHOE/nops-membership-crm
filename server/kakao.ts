@@ -62,8 +62,6 @@ export async function sendWelcomeAlimtalk(opts: {
         templateId: TEMPLATE_WELCOME,
         variables: {
           "#{이름}": opts.name,
-          "#{쿠폰목록}": couponList,
-          "#{링크}": "https://membership.nops.kr/mypage",
         },
       },
     } as Parameters<typeof client.send>[0]);
@@ -99,7 +97,6 @@ export async function sendExpiryAlimtalk(opts: {
             "#{이름}": opts.name,
             "#{쿠폰명}": coupon.name,
             "#{만료일}": new Date(coupon.expiresAt).toLocaleDateString("ko-KR"),
-            "#{링크}": "https://membership.nops.kr/mypage",
           },
         },
       } as Parameters<typeof client.send>[0]);
@@ -135,6 +132,9 @@ export async function sendAnniversaryAlimtalk(opts: {
   discountPercent: number;
   expiresAt: Date;
 }) {
+  console.info(`[Kakao] Anniversary alimtalk skipped for ${opts.to}: 브랜드 템플릿 발송 경로 준비 전`);
+  return { success: true, skipped: true };
+
   try {
     const client = getSolapiClient();
     const templateId = requireTemplateId(TEMPLATE_ANNIVERSARY, "ANNIVERSARY");
@@ -172,6 +172,9 @@ export async function sendBirthdayAlimtalk(opts: {
   discountPercent: number;
   expiresAt: Date;
 }) {
+  console.info(`[Kakao] Birthday alimtalk skipped for ${opts.to}: 생일 알림톡 보류`);
+  return { success: true, skipped: true };
+
   try {
     const client = getSolapiClient();
     const templateId = requireTemplateId(TEMPLATE_BIRTHDAY, "BIRTHDAY");
@@ -208,6 +211,9 @@ export async function sendCorkageReissueAlimtalk(opts: {
   couponCode: string;
   expiresAt: Date;
 }) {
+  console.info(`[Kakao] Corkage reissue alimtalk skipped for ${opts.to}: 브랜드 템플릿 발송 경로 준비 전`);
+  return { success: true, skipped: true };
+
   try {
     const client = getSolapiClient();
     const templateId = requireTemplateId(TEMPLATE_CORKAGE, "CORKAGE");
@@ -244,6 +250,9 @@ export async function sendPointsExpiryAlimtalk(opts: {
   balance: number;         // 현재 잔액
   expiresAt: Date;         // 만료일
 }) {
+  console.info(`[Kakao] Points expiry alimtalk skipped for ${opts.to}: 포인트 알림 보류`);
+  return { success: true, skipped: true };
+
   try {
     const client = getSolapiClient();
     const templateId = requireTemplateId(TEMPLATE_POINTS_EXPIRY, "POINTS_EXPIRY");
@@ -293,6 +302,9 @@ export async function sendPointsAlimtalk(opts: {
   balance: number;
   expiresAt: Date;
 }) {
+  console.info(`[Kakao] Points alimtalk skipped for ${opts.to}: 포인트 알림 보류`);
+  return { success: true, skipped: true };
+
   try {
     const client = getSolapiClient();
     await client.send({
