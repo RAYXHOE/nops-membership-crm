@@ -26,6 +26,10 @@ for (const [purpose, templateId] of templates) {
       templateId,
       name: template.name,
       status: template.status,
+      channelId: template.channelId,
+      categoryCode: template.categoryCode,
+      messageType: template.messageType,
+      emphasizeType: template.emphasizeType,
       content: template.content,
       buttons: template.buttons,
     }, null, 2));

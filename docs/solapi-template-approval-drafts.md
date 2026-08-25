@@ -124,3 +124,15 @@ Mr. 놉스 올림
 4. `alimtalk_logs`에서 성공 상태와 수신 단말의 실제 문구를 함께 확인합니다.
 
 승인 전에는 생일·결혼기념일·콜키지 재발급·적립금 만료 이벤트가 용도가 다른 템플릿으로 발송되지 않도록 코드가 차단합니다.
+
+## 2026-08-25 생성 결과
+
+아래 알림톡 템플릿은 기존 브랜드 템플릿과 별개로 SOLAPI 알림톡 API에 생성되었으며, 현재 카카오 검수 대기(`PENDING`) 상태입니다. 승인 전에는 환경변수에 등록하지 않습니다.
+
+| 환경변수 | 템플릿명 | 템플릿 ID | 상태 |
+|---|---|---|---|
+| `SOLAPI_TEMPLATE_WELCOME` | NOPS 멤버십 가입 완료 | `KA01TP260825090221566j6JhiGwpOXe` | PENDING |
+| `SOLAPI_TEMPLATE_BIRTHDAY` | NOPS 생일 쿠폰 발급 | `KA01TP260825090224708SxwklYNqZtx` | PENDING |
+| `SOLAPI_TEMPLATE_ANNIVERSARY` | NOPS 결혼기념일 쿠폰 발급 | `KA01TP260825090226041mnhFUOaAJe5` | PENDING |
+| `SOLAPI_TEMPLATE_CORKAGE` | NOPS 콜키지 프리 쿠폰 재발급 | `KA01TP260825090226941JT4ubZqrcRx` | PENDING |
+| `SOLAPI_TEMPLATE_POINTS_EXPIRY` | NOPS 적립금 만료 예정 안내 | `KA01TP260825090227818UvS6gnzuaLb` | PENDING |
