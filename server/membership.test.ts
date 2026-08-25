@@ -165,6 +165,46 @@ describe("membership.register", () => {
       })
     ).rejects.toThrow("이미 가입된 이메일입니다");
   });
+
+  it.each([
+    ["특수문자가 포함된 이름", { name: "잇..미" }, "이름은 한글 또는 영문만 입력해 주세요."],
+    ["오타 도메인 이메일", { email: "member@gmail.con" }, "이메일 도메인을 확인해 주세요."],
+    ["잘못된 전화번호", { phone: "010-123-456" }, "휴대폰 번호 10~11자리를 정확히 입력해 주세요."],
+    ["비정상 생년", { birthDate: "1079-01-01" }, "생년은 1900년부터"],
+  ])("%s은 가입을 차단한다", async (_label, override, expectedMessage) => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(
+      caller.membership.register({
+        name: "홍길동",
+        email: "valid@example.com",
+        phone: "010-1234-5678",
+        birthDate: "1990-01-01",
+        privacyConsent: true,
+        marketingConsent: false,
+        ...override,
+      })
+    ).rejects.toThrow(expectedMessage);
+  });
+
+  it("이메일 소문자화와 전화번호 표준화를 적용한다", async () => {
+    const db = await import("./db");
+    (db.getMemberByEmail as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: 11, email: "new@example.com", name: "신규회원" });
+
+    const caller = appRouter.createCaller(createPublicCtx());
+    await caller.membership.register({
+      name: "신규회원",
+      email: " NEW@EXAMPLE.COM ",
+      phone: "01099998888",
+      birthDate: "1995-06-15",
+      privacyConsent: true,
+      marketingConsent: false,
+    });
+
+    expect(db.getMemberByEmail).toHaveBeenCalledWith("new@example.com");
+    expect(db.getMemberByPhone).toHaveBeenCalledWith("010-9999-8888");
+  });
 });
 
 describe("권한 분리", () => {

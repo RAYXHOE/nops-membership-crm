@@ -52,6 +52,7 @@ import {
 import { sendWelcomeEmail, sendOtpEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
 import { createOtp, verifyOtp as verifyOtpDb } from "./db";
+import { memberRegistrationSchema } from "@shared/memberRegistration";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -155,20 +156,7 @@ export const appRouter = router({
   // ─── Public: 멤버십 가입 ────────────────────────────────────────────────────
   membership: router({
     register: publicProcedure
-      .input(
-        z.object({
-          name: z.string().min(1).max(100),
-          email: z.string().email(),
-          phone: z.string().min(9).max(20),
-          birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-          anniversaryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-          visitedBranch: z.string().max(100).optional(),
-          privacyConsent: z.boolean(),
-          marketingConsent: z.boolean(),
-          ipAddress: z.string().optional(),
-          userAgent: z.string().optional(),
-        })
-      )
+      .input(memberRegistrationSchema)
       .mutation(async ({ input }) => {
         if (!input.privacyConsent) {
           throw new TRPCError({

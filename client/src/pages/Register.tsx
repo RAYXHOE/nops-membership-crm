@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { trpc } from "@/lib/trpc";
+import { formatKoreanMobilePhone, memberRegistrationSchema } from "@shared/memberRegistration";
 import { toast } from "sonner";
 import { Crown, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,14 +53,7 @@ const MARKETING_TEXT = `마케팅 정보 수신 동의서 (선택)
 
 본 동의는 선택 사항이며 거부하셔도 멤버십 가입에 불이익이 없습니다.`;
 
-const schema = z.object({
-  name: z.string().min(1, "이름을 입력해주세요").max(100),
-  email: z.string().email("올바른 이메일 형식이 아닙니다"),
-  phone: z.string().min(9, "전화번호를 입력해주세요").max(20),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "생년월일 형식: YYYY-MM-DD"),
-  privacyConsent: z.boolean().refine((v) => v === true, "개인정보 수집 동의는 필수입니다"),
-  marketingConsent: z.boolean(),
-});
+const schema = memberRegistrationSchema;
 
 type FormValues = z.infer<typeof schema>;
 
@@ -186,6 +180,16 @@ export default function Register() {
   const marketingConsent = watch("marketingConsent");
   const [birthDisplay, setBirthDisplay] = useState("");
   const [visitedBranch, setVisitedBranch] = useState("");
+  const phoneField = register("phone", {
+    onChange: (event) => {
+      event.target.value = formatKoreanMobilePhone(event.target.value);
+    },
+  });
+  const emailField = register("email", {
+    onBlur: (event) => {
+      setValue("email", event.target.value.trim().toLowerCase(), { shouldValidate: true });
+    },
+  });
 
   const registerMutation = trpc.membership.register.useMutation({
     onSuccess: (data) => {
@@ -241,7 +245,7 @@ export default function Register() {
               <Label htmlFor="name" className="text-sm font-semibold text-foreground">
                 이름 <span className="text-destructive">*</span>
               </Label>
-              <Input id="name" placeholder="홍길동" {...register("name")} className="h-11" />
+              <Input id="name" placeholder="홍길동" autoComplete="name" {...register("name")} className="h-11" />
               {errors.name && <p className="text-destructive text-xs">{errors.name.message}</p>}
             </div>
 
@@ -249,7 +253,7 @@ export default function Register() {
               <Label htmlFor="email" className="text-sm font-semibold text-foreground">
                 이메일 <span className="text-destructive">*</span>
               </Label>
-              <Input id="email" type="email" placeholder="example@email.com" {...register("email")} className="h-11" />
+              <Input id="email" type="email" placeholder="example@email.com" autoComplete="email" {...emailField} className="h-11" />
               {errors.email && <p className="text-destructive text-xs">{errors.email.message}</p>}
             </div>
 
@@ -257,7 +261,7 @@ export default function Register() {
               <Label htmlFor="phone" className="text-sm font-semibold text-foreground">
                 전화번호 <span className="text-destructive">*</span>
               </Label>
-              <Input id="phone" type="tel" placeholder="010-0000-0000" {...register("phone")} className="h-11" />
+              <Input id="phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" {...phoneField} className="h-11" />
               {errors.phone && <p className="text-destructive text-xs">{errors.phone.message}</p>}
             </div>
 
