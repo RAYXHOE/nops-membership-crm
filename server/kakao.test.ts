@@ -15,6 +15,10 @@ vi.mock("solapi", () => {
   };
 });
 
+vi.mock("./db", () => ({
+  createAlimtalkLog: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("kakao alimtalk service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
