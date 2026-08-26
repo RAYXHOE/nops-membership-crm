@@ -11,6 +11,7 @@ import {
 import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
 import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk, sendCorkageReissueAlimtalk, sendPointsExpiryAlimtalk } from "./kakao";
 import { MISSING_POINTS_QUERY } from "./pointsMissingQuery";
+import { COUPON_EXPIRY_REMINDER_DAYS, getCouponExpiryAt } from "@shared/couponPolicy";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -45,8 +46,7 @@ export async function birthdayCouponHandler(req: Request, res: Response) {
     let issued = 0;
 
     for (const member of birthdayMembers) {
-      const expiresAt = new Date(now);
-      expiresAt.setDate(expiresAt.getDate() + template.validDays);
+      const expiresAt = getCouponExpiryAt(now);
 
       const couponCode = generateCouponCode("BDAY");
       await issueCoupon({
@@ -97,7 +97,7 @@ export async function birthdayCouponHandler(req: Request, res: Response) {
 /**
  * POST /api/scheduled/coupon-expiry-reminder
  * 매일 오전 10시(KST) = UTC 01:00 실행
- * 7일 후 만료되는 활성 쿠폰 보유 회원에게 이메일 알림 발송
+ * 30일 후 만료되는 활성 쿠폰 보유 회원에게 이메일 알림 발송
  */
 export async function couponExpiryReminderHandler(req: Request, res: Response) {
   try {
@@ -106,11 +106,11 @@ export async function couponExpiryReminderHandler(req: Request, res: Response) {
       return res.status(403).json({ error: "cron-only endpoint" });
     }
 
-    // 7일 후 만료 쿠폰 조회
-    const expiringItems = await getCouponsExpiringInDays(7);
+    // 30일 후 만료 쿠폰 조회
+    const expiringItems = await getCouponsExpiringInDays(COUPON_EXPIRY_REMINDER_DAYS);
 
     if (expiringItems.length === 0) {
-      console.log("[Expiry Reminder] No coupons expiring in 7 days");
+      console.log(`[Expiry Reminder] No coupons expiring in ${COUPON_EXPIRY_REMINDER_DAYS} days`);
       return res.json({ ok: true, sent: 0, date: new Date().toISOString().slice(0, 10) });
     }
 
@@ -215,8 +215,7 @@ export async function anniversaryCouponHandler(req: Request, res: Response) {
     let issued = 0;
 
     for (const member of anniversaryMembers) {
-      const expiresAt = new Date(now);
-      expiresAt.setDate(expiresAt.getDate() + template.validDays);
+      const expiresAt = getCouponExpiryAt(now);
 
       const couponCode = generateCouponCode("ANNI");
       await issueCoupon({
@@ -429,8 +428,7 @@ export async function checkMissingCouponsHandler(req: Request, res: Response) {
     const issuedNames: string[] = [];
 
     for (const member of missingMembers) {
-      const expiresAt = new Date(now);
-      expiresAt.setDate(expiresAt.getDate() + template.validDays);
+      const expiresAt = getCouponExpiryAt(now);
       const code = `NOPS-${Array.from({ length: 8 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("")}`;
       await issueCoupon({
         memberId: member.id,

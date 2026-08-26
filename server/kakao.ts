@@ -76,12 +76,15 @@ export async function sendWelcomeAlimtalk(opts: {
   }
 }
 
-// ─── 쿠폰 만료 D-7 알림톡 ────────────────────────────────────────────────────
+// ─── 쿠폰 만료 D-30 알림톡 ───────────────────────────────────────────────────
 export async function sendExpiryAlimtalk(opts: {
   to: string;
   name: string;
   coupons: Array<{ name: string; code: string; expiresAt: Date }>;
 }) {
+  console.info(`[Kakao] Expiry alimtalk skipped for ${opts.to}: 알림톡 운영 보류`);
+  return { success: true, skipped: true };
+
   try {
     const client = getSolapiClient();
     let sent = 0;

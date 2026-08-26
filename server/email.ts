@@ -253,11 +253,11 @@ function buildExpiryReminderHtml(opts: {
           <tr>
             <td style="padding:40px 40px 24px;">
               <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:10px; padding:14px 18px; margin-bottom:24px;">
-                <p style="margin:0; font-size:14px; font-weight:700; color:#856404;">⏰ 쿠폰이 7일 후 만료됩니다</p>
+                <p style="margin:0; font-size:14px; font-weight:700; color:#856404;">⏰ 쿠폰이 30일 후 만료됩니다</p>
               </div>
               <h2 style="margin:0 0 12px; font-size:20px; font-weight:800; color:#1a1a1a;">${opts.name}님, 쿠폰을 잊지 마세요!</h2>
               <p style="margin:0; font-size:15px; color:#555; line-height:1.7;">
-                아래 쿠폰이 <strong>7일 이내에 만료</strong>됩니다.<br />
+                아래 쿠폰이 <strong>30일 이내에 만료</strong>됩니다.<br />
                 방문 시 직원에게 쿠폰 코드를 제시해 주세요.
               </p>
             </td>
@@ -302,7 +302,7 @@ export async function sendExpiryReminderEmail(opts: {
     const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: opts.to,
-      subject: `[NOPS Steak House] ${opts.name}님, 쿠폰이 7일 후 만료됩니다 ⏰`,
+      subject: `[NOPS Steak House] ${opts.name}님, 쿠폰이 30일 후 만료됩니다 ⏰`,
       html: buildExpiryReminderHtml({ name: opts.name, coupons: opts.coupons }),
     });
     console.log(`[Email] Expiry reminder sent to ${opts.to}:`, result.data?.id ?? result.error);

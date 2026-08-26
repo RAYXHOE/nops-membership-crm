@@ -53,6 +53,7 @@ import { sendWelcomeEmail, sendOtpEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
 import { createOtp, verifyOtp as verifyOtpDb } from "./db";
 import { memberRegistrationSchema } from "@shared/memberRegistration";
+import { getCouponExpiryAt } from "@shared/couponPolicy";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -266,8 +267,7 @@ export const appRouter = router({
 
         // 기본 혜택: 콜키지 프리 (모든 회원)
         if (corkageTemplate) {
-          const expiresAt = new Date(now);
-          expiresAt.setDate(expiresAt.getDate() + corkageTemplate.validDays);
+          const expiresAt = getCouponExpiryAt(now);
           try {
             await issueCouponWithRetry({
               memberId: member.id,
@@ -287,8 +287,7 @@ export const appRouter = router({
         // 마케팅 동의 시 추가 혜택: 10% 할인 쿠폰 + 생일 쿠폰
         if (input.marketingConsent) {
           if (discountTemplate) {
-            const expiresAt = new Date(now);
-            expiresAt.setDate(expiresAt.getDate() + discountTemplate.validDays);
+            const expiresAt = getCouponExpiryAt(now);
             try {
               await issueCouponWithRetry({
                 memberId: member.id,
@@ -327,10 +326,9 @@ export const appRouter = router({
                     eqOp(couponsSchema.type, "birthday"),
                     sqlOp`YEAR(issuedAt) = ${joinYear}`
                   )
-                ).limit(1) : [];
+              ).limit(1) : [];
               if (!existingBirthday || existingBirthday.length === 0) {
-                const expiresAt = new Date(now);
-                expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
+                const expiresAt = getCouponExpiryAt(now);
                 try {
                   await issueCouponWithRetry({
                     memberId: member.id,
@@ -447,8 +445,7 @@ export const appRouter = router({
               if (existingBirthday.length === 0) {
                 const birthdayTemplate = await getCouponTemplateByType("birthday");
                 if (birthdayTemplate) {
-                  const expiresAt = new Date(now);
-                  expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
+                  const expiresAt = getCouponExpiryAt(now);
                   try {
                     await issueCoupon({
                       memberId: member.id,
@@ -483,8 +480,7 @@ export const appRouter = router({
               if (existingAnniversary.length === 0) {
                 const anniversaryTemplate = await getCouponTemplateByType("anniversary");
                 if (anniversaryTemplate) {
-                  const expiresAt = new Date(now);
-                  expiresAt.setDate(expiresAt.getDate() + anniversaryTemplate.validDays);
+                  const expiresAt = getCouponExpiryAt(now);
                   try {
                     await issueCoupon({
                       memberId: member.id,
@@ -613,8 +609,7 @@ export const appRouter = router({
 
           // 10% 할인 쿠폰 (아직 없는 경우만)
           if (!hasDiscount && discountTemplate) {
-            const expiresAt = new Date(now);
-            expiresAt.setDate(expiresAt.getDate() + discountTemplate.validDays);
+            const expiresAt = getCouponExpiryAt(now);
             await issueCoupon({
               memberId: input.memberId,
               templateId: discountTemplate.id,
@@ -633,8 +628,7 @@ export const appRouter = router({
             const birthMonth = new Date(member.birthDate).getMonth() + 1;
             const currentMonth = now.getMonth() + 1;
             if (birthMonth === currentMonth) {
-              const expiresAt = new Date(now);
-              expiresAt.setDate(expiresAt.getDate() + birthdayTemplate.validDays);
+              const expiresAt = getCouponExpiryAt(now);
               await issueCoupon({
                 memberId: input.memberId,
                 templateId: birthdayTemplate.id,
@@ -659,8 +653,7 @@ export const appRouter = router({
             if (anniversaryMonth === currentMonth) {
               const anniversaryTemplate = await getCouponTemplateByType("anniversary");
               if (anniversaryTemplate) {
-                const expiresAt = new Date(now);
-                expiresAt.setDate(expiresAt.getDate() + anniversaryTemplate.validDays);
+                const expiresAt = getCouponExpiryAt(now);
                 await issueCoupon({
                   memberId: input.memberId,
                   templateId: anniversaryTemplate.id,
@@ -976,7 +969,6 @@ export const appRouter = router({
         z.object({
           memberId: z.number(),
           type: z.enum(["discount_percent", "corkage_free", "birthday", "employee"]),
-          validDays: z.number().min(1).default(365),
           note: z.string().optional(),
         })
       )
@@ -985,8 +977,7 @@ export const appRouter = router({
         if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "쿠폰 템플릿을 찾을 수 없습니다." });
 
         const now = new Date();
-        const expiresAt = new Date(now);
-        expiresAt.setDate(expiresAt.getDate() + input.validDays);
+        const expiresAt = getCouponExpiryAt(now);
 
         const prefix = input.type === "discount_percent" ? "NOPS" : input.type === "corkage_free" ? "CORK" :
                        input.type === "employee" ? "EMP" : "BDAY";
@@ -1011,14 +1002,12 @@ export const appRouter = router({
       .input(z.object({
         memberId: z.number(),
         note: z.string().optional(),
-        validDays: z.number().min(1).default(365),
       }))
       .mutation(async ({ input }) => {
         const template = await getCouponTemplateByType("employee");
         if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "임직원 쿠폰 템플릿이 없습니다." });
         const now = new Date();
-        const expiresAt = new Date(now);
-        expiresAt.setDate(expiresAt.getDate() + input.validDays);
+        const expiresAt = getCouponExpiryAt(now);
         await issueCoupon({
           memberId: input.memberId,
           templateId: template.id,
@@ -1451,8 +1440,7 @@ export const appRouter = router({
       let issued = 0;
 
       for (const member of birthdayMembers) {
-        const expiresAt = new Date(now);
-        expiresAt.setDate(expiresAt.getDate() + template.validDays);
+        const expiresAt = getCouponExpiryAt(now);
         await issueCoupon({
           memberId: member.id,
           templateId: template.id,

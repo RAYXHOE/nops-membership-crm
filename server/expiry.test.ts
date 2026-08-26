@@ -53,11 +53,12 @@ describe("couponExpiryReminderHandler", () => {
     const db = await import("./db");
     (db.getCouponsExpiringInDays as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 
-    const { couponExpiryReminderHandler } = await import("./scheduledHandlers");
-    const res = mockResponse();
-    await couponExpiryReminderHandler(mockRequest, res);
+  const { couponExpiryReminderHandler } = await import("./scheduledHandlers");
+  const res = mockResponse();
+  await couponExpiryReminderHandler(mockRequest, res);
 
-    expect(res.json).toHaveBeenCalledWith(
+  expect(db.getCouponsExpiringInDays).toHaveBeenCalledWith(30);
+  expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ ok: true, sent: 0 })
     );
   });

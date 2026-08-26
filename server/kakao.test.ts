@@ -43,7 +43,7 @@ describe("kakao alimtalk service", () => {
     expect(result.success).toBe(true);
   });
 
-  it("sendExpiryAlimtalk - 쿠폰 2개 → 2건 발송", async () => {
+  it("sendExpiryAlimtalk - 알림톡 보류 중에는 발송을 건너뜀", async () => {
     const { sendExpiryAlimtalk } = await import("./kakao");
     const result = await sendExpiryAlimtalk({
       to: "010-9999-8888",
@@ -54,7 +54,7 @@ describe("kakao alimtalk service", () => {
       ],
     });
     expect(result.success).toBe(true);
-    expect((result as { sent?: number }).sent).toBe(2);
+    expect((result as { skipped?: boolean }).skipped).toBe(true);
   });
 
   it("validateSolapiApiKey - API 키 유효 시 true 반환", async () => {
