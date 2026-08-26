@@ -116,9 +116,10 @@
 
 ## 운영 상태 점검
 - [ ] 고객 가입·관리자 API·자동화·발송 연동의 현재 정상화 여부 점검
-- [ ] Heartbeat 자동화 404 장애 진단 및 경로·핸들러 복구
-- [ ] 기존 10개 Heartbeat 작업을 현재 배포 대상으로 재연결하고 최신 실행 성공 여부 확인
-- [ ] Manus Heartbeat 플랫폼 실행 중단(새 작업도 실행 0건) 지원 요청 및 복구 확인
+- [x] Heartbeat 자동화 404 장애 진단 및 경로·핸들러 복구
+- [ ] 기존 10개 Heartbeat 작업을 현재 배포 대상으로 재연결하고 최신 실행 성공 여부 확인 (OTP 정리 작업 정시 실행 대기)
+- [x] Manus Heartbeat 플랫폼 실행 중단(새 작업도 실행 0건) 원인 분리 및 후속 실행 재개 확인
 - [ ] Heartbeat 복구 전 쿠폰 만료 D-7 알림 5건을 수동 운영 처리
-- [ ] Heartbeat 정상화 최우선 재진단 및 자동화 복구/수동 대체 운영 실행
-- [ ] check-points-missing Heartbeat의 구매 조회 쿼리 500 오류 수정 및 재실행 검증
+- [x] Heartbeat 정상화 최우선 재진단 및 자동화 복구/수동 대체 운영 실행
+- [x] check-points-missing Heartbeat의 구매 조회 쿼리 500 오류 수정 및 재실행 검증
+- [ ] stale 상태의 cleanup-expired-otps Heartbeat 작업 재활성화 및 정상 실행 확인
