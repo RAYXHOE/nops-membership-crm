@@ -10,6 +10,7 @@ import {
 } from "./db";
 import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
 import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk, sendCorkageReissueAlimtalk, sendPointsExpiryAlimtalk } from "./kakao";
+import { MISSING_POINTS_QUERY } from "./pointsMissingQuery";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -488,19 +489,9 @@ export async function checkPointsMissingHandler(req: Request, res: Response) {
 
     await db.execute(sql`SET SESSION tidb_replica_read = 'leader'`);
 
-    // 적립 누락 조회 (3,334원 이상 구매 기준 — Math.floor(3334*0.03/100)*100 = 100원, 즉 100원 이상 적립되는 최소 금액)
-    const result = await db.execute(sql`
-      SELECT p.id as purchaseId, p.memberId, p.finalAmount, p.purchasedAt,
-             m.name as memberName, m.email as memberEmail
-      FROM purchases p
-      LEFT JOIN points pt ON pt.purchaseId = p.id AND pt.type = 'earn'
-      LEFT JOIN members m ON m.id = p.memberId
-      WHERE p.finalAmount >= 3334
-      AND pt.id IS NULL
-      AND p.status != 'cancelled'
-      ORDER BY p.purchasedAt DESC
-      LIMIT 50
-    `);
+    // 적립 누락 조회 (3,334원 이상 구매 기준 — 100원 이상 적립되는 최소 금액)
+    // purchases에는 status 컬럼이 없다. 취소 구매는 earn 이력이 남아 있어 누락 대상에서 제외된다.
+    const result = await db.execute(sql.raw(MISSING_POINTS_QUERY));
 
     const rows = Array.isArray(result[0]) ? result[0] as Record<string, unknown>[] : [];
 
