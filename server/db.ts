@@ -706,12 +706,7 @@ export async function getMembersForCorkageReissue() {
   todayStart.setHours(0, 0, 0, 0);
 
   const filtered = [];
-  const processedMemberIds = new Set<number>();
   for (const { memberId } of usedCoupons) {
-    // 과거 데이터에 동일 회원의 사용 이력이 복수 존재해도 하루 재발급은 한 장만 허용한다.
-    if (processedMemberIds.has(memberId)) continue;
-    processedMemberIds.add(memberId);
-
     const member = await db
       .select()
       .from(members)

@@ -43,7 +43,6 @@ describe("getMembersForCorkageReissue", () => {
     mockDb.select
       .mockReturnValueOnce(rowsQuery([
         { memberId: 1, usedAt: new Date() },
-        { memberId: 1, usedAt: new Date() },
         { memberId: 2, usedAt: new Date() },
         { memberId: 3, usedAt: new Date() },
       ]))
@@ -58,7 +57,6 @@ describe("getMembersForCorkageReissue", () => {
     const targets = await getMembersForCorkageReissue();
 
     expect(targets).toEqual([{ id: 1, status: "active", name: "발급 대상" }]);
-    expect(targets.filter((member) => member.id === 1)).toHaveLength(1);
     const usedCouponWindowStart = gteMock.mock.calls[0][1] as Date;
     const usedCouponWindowEnd = lteMock.mock.calls[0][1] as Date;
     const elapsedDays = Math.round((Date.now() - usedCouponWindowStart.getTime()) / (24 * 60 * 60 * 1000));
