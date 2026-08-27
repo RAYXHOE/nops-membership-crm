@@ -77,6 +77,9 @@ const mockMember = {
   marketingConsent: false,
   marketingConsentAt: null,
   marketingConsentContent: null,
+  kakaoMarketingConsent: false,
+  kakaoMarketingConsentAt: null,
+  kakaoMarketingConsentContent: null,
   status: "active" as const,
   joinedAt: new Date(),
   updatedAt: new Date(),
@@ -195,5 +198,69 @@ describe("membership.updateMarketingConsent", () => {
     expect(result.success).toBe(true);
     expect(result.couponsIssued).toBe(0);
     expect(db.issueCoupon).not.toHaveBeenCalled();
+  });
+});
+
+describe("membership.updateKakaoMarketingConsent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("카카오톡 광고성 정보 수신 동의를 별도 필드와 이력에 저장한다", async () => {
+    const db = await import("./db");
+    (db.getMemberById as ReturnType<typeof vi.fn>).mockResolvedValue({ ...mockMember, kakaoMarketingConsent: false });
+
+    const caller = appRouter.createCaller(createPublicCtx());
+    const result = await caller.membership.updateKakaoMarketingConsent({
+      memberId: 1,
+      email: "test@example.com",
+      agreed: true,
+      userAgent: "vitest",
+    });
+
+    expect(result).toEqual({ success: true, alreadySame: false });
+    expect(db.updateMember).toHaveBeenCalledWith(1, expect.objectContaining({
+      kakaoMarketingConsent: true,
+      kakaoMarketingConsentAt: expect.any(Date),
+      kakaoMarketingConsentContent: expect.stringContaining("카카오톡 광고성 정보 수신 동의서"),
+    }));
+    expect(db.createConsentLog).toHaveBeenCalledWith(expect.objectContaining({
+      consentType: "kakao_marketing",
+      agreed: true,
+    }));
+  });
+
+  it("카카오톡 광고성 정보 수신 철회는 이메일·SMS 마케팅 동의와 독립적으로 처리한다", async () => {
+    const db = await import("./db");
+    (db.getMemberById as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...mockMember,
+      marketingConsent: true,
+      kakaoMarketingConsent: true,
+    });
+
+    const caller = appRouter.createCaller(createPublicCtx());
+    await caller.membership.updateKakaoMarketingConsent({ memberId: 1, email: "test@example.com", agreed: false });
+
+    expect(db.updateMember).toHaveBeenCalledWith(1, expect.objectContaining({
+      kakaoMarketingConsent: false,
+      kakaoMarketingConsentAt: null,
+      kakaoMarketingConsentContent: null,
+    }));
+    expect(db.createConsentLog).toHaveBeenCalledWith(expect.objectContaining({
+      consentType: "kakao_marketing_withdraw",
+      agreed: false,
+    }));
+  });
+
+  it("이메일이 일치하지 않으면 카카오톡 수신 동의를 변경할 수 없다", async () => {
+    const db = await import("./db");
+    (db.getMemberById as ReturnType<typeof vi.fn>).mockResolvedValue({ ...mockMember, email: "other@example.com" });
+
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(caller.membership.updateKakaoMarketingConsent({
+      memberId: 1,
+      email: "test@example.com",
+      agreed: true,
+    })).rejects.toThrow("본인 확인에 실패했습니다");
   });
 });

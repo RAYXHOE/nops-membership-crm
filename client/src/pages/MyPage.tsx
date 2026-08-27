@@ -198,6 +198,14 @@ function CouponView({ memberId }: { memberId: number }) {
     onError: (err) => toast.error(err.message),
   });
 
+  const updateKakaoMarketingMutation = trpc.membership.updateKakaoMarketingConsent.useMutation({
+    onSuccess: (_, variables) => {
+      toast.success(variables.agreed ? "카카오톡 광고성 정보 수신에 동의했습니다." : "카카오톡 광고성 정보 수신을 철회했습니다.");
+      memberInfoQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   return (
     <>
       {member && (
@@ -265,6 +273,36 @@ function CouponView({ memberId }: { memberId: number }) {
               </div>
             </div>
           )}
+          <div className="flex items-center justify-between py-3 border-t border-border/30">
+            <div className="flex items-center gap-2">
+              <MessageCircle className={`w-3.5 h-3.5 ${(member as typeof member & { kakaoMarketingConsent?: boolean }).kakaoMarketingConsent ? "text-yellow-500" : "text-muted-foreground"}`} />
+              <span className="text-xs text-muted-foreground">
+                {(member as typeof member & { kakaoMarketingConsent?: boolean }).kakaoMarketingConsent
+                  ? "카카오톡 광고성 정보 수신 중"
+                  : "카카오톡 광고성 정보 미동의"}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                const currentlyAgreed = (member as typeof member & { kakaoMarketingConsent?: boolean }).kakaoMarketingConsent === true;
+                const question = currentlyAgreed
+                  ? "카카오톡 광고성 정보 수신을 철회하시겠습니까?"
+                  : "카카오톡 브랜드 메시지로 신메뉴·이벤트·쿠폰 안내를 받으시겠습니까?\n\n마이페이지에서 언제든 철회할 수 있습니다.";
+                if (confirm(question)) {
+                  updateKakaoMarketingMutation.mutate({
+                    memberId,
+                    email: member.email,
+                    agreed: !currentlyAgreed,
+                    userAgent: navigator.userAgent,
+                  });
+                }
+              }}
+              disabled={updateKakaoMarketingMutation.isPending}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors disabled:opacity-50"
+            >
+              {(member as typeof member & { kakaoMarketingConsent?: boolean }).kakaoMarketingConsent ? "수신 철회" : "동의하기"}
+            </button>
+          </div>
           <AnniversarySection memberId={memberId} current={(member as typeof member & { anniversaryDate?: string | null }).anniversaryDate ?? null} onUpdated={() => memberInfoQuery.refetch()} />
         </div>
       )}

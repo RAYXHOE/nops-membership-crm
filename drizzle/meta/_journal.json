@@ -50,6 +50,13 @@
       "when": 1787804116374,
       "tag": "0006_medical_phalanx",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1787818149071,
+      "tag": "0007_clear_nighthawk",
+      "breakpoints": true
     }
   ]
 }

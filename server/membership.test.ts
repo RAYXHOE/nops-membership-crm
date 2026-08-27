@@ -121,6 +121,7 @@ describe("membership.register", () => {
         birthDate: "1990-01-01",
         privacyConsent: false,
         marketingConsent: false,
+        kakaoMarketingConsent: false,
       })
     ).rejects.toThrow("개인정보 수집 동의는 필수입니다");
   });
@@ -140,10 +141,19 @@ describe("membership.register", () => {
       birthDate: "1995-06-15",
       privacyConsent: true,
       marketingConsent: true,
+      kakaoMarketingConsent: true,
     });
 
     expect(result.success).toBe(true);
     expect(result.memberId).toBe(10);
+    expect(db.createMember).toHaveBeenCalledWith(expect.objectContaining({
+      kakaoMarketingConsent: true,
+      kakaoMarketingConsentAt: expect.any(Date),
+    }));
+    expect(db.createConsentLog).toHaveBeenCalledWith(expect.objectContaining({
+      consentType: "kakao_marketing",
+      agreed: true,
+    }));
     const discountIssue = (db.issueCoupon as ReturnType<typeof vi.fn>).mock.calls
       .map(([data]) => data as { type: string; grantKey?: string })
       .find((data) => data.type === "discount_percent");
@@ -167,6 +177,7 @@ describe("membership.register", () => {
         birthDate: "1990-01-01",
         privacyConsent: true,
         marketingConsent: false,
+        kakaoMarketingConsent: false,
       })
     ).rejects.toThrow("이미 가입된 이메일입니다");
   });
@@ -186,6 +197,7 @@ describe("membership.register", () => {
         birthDate: "1990-01-01",
         privacyConsent: true,
         marketingConsent: false,
+        kakaoMarketingConsent: false,
         ...override,
       })
     ).rejects.toThrow(expectedMessage);
@@ -205,6 +217,7 @@ describe("membership.register", () => {
       birthDate: "1995-06-15",
       privacyConsent: true,
       marketingConsent: false,
+      kakaoMarketingConsent: false,
     });
 
     expect(db.getMemberByEmail).toHaveBeenCalledWith("new@example.com");

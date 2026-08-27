@@ -101,6 +101,15 @@ const MARKETING_CONSENT_TEXT = `마케팅 정보 수신 동의서
 보유 기간: 동의 철회 시까지
 동의 거부 시 불이익: 마케팅 정보 수신이 제한되나, 기본 멤버십 혜택은 유지됩니다.`;
 
+const KAKAO_MARKETING_CONSENT_TEXT = `카카오톡 광고성 정보 수신 동의서
+
+수신 항목: 신메뉴 안내, 이벤트 정보, 프로모션 혜택, 쿠폰 안내
+수신 방법: 카카오톡 브랜드 메시지
+보유 기간: 동의 철회 시까지
+동의 거부 시 불이익: 카카오톡 광고성 정보 수신이 제한되나, 기본 멤버십 혜택은 유지됩니다.
+
+본 동의는 선택 사항이며, 마이페이지에서 언제든 철회할 수 있습니다.`;
+
 // ─── Permission Helpers ──────────────────────────────────────────────────────
 type AllowedRole = "branch_admin" | "staff" | "admin";
 
@@ -227,6 +236,9 @@ export const appRouter = router({
           marketingConsent: input.marketingConsent,
           marketingConsentAt: input.marketingConsent ? now : undefined,
           marketingConsentContent: input.marketingConsent ? MARKETING_CONSENT_TEXT : undefined,
+          kakaoMarketingConsent: input.kakaoMarketingConsent,
+          kakaoMarketingConsentAt: input.kakaoMarketingConsent ? now : undefined,
+          kakaoMarketingConsentContent: input.kakaoMarketingConsent ? KAKAO_MARKETING_CONSENT_TEXT : undefined,
           status: "active",
           joinedAt: now,
         });
@@ -250,6 +262,17 @@ export const appRouter = router({
             consentType: "marketing",
             agreed: true,
             consentContent: MARKETING_CONSENT_TEXT,
+            ipAddress: input.ipAddress,
+            userAgent: input.userAgent,
+          });
+        }
+
+        if (input.kakaoMarketingConsent) {
+          await createConsentLog({
+            memberId: member.id,
+            consentType: "kakao_marketing",
+            agreed: true,
+            consentContent: KAKAO_MARKETING_CONSENT_TEXT,
             ipAddress: input.ipAddress,
             userAgent: input.userAgent,
           });
@@ -675,6 +698,40 @@ export const appRouter = router({
         return { success: true, couponsIssued, alreadySame: false };
       }),
 
+    // 카카오톡 광고성 정보 수신 동의 변경 (이메일·SMS 마케팅 동의와 별도 관리)
+    updateKakaoMarketingConsent: publicProcedure
+      .input(z.object({
+        memberId: z.number(),
+        email: z.string().email(),
+        agreed: z.boolean(),
+        userAgent: z.string().max(1000).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const member = await getMemberById(input.memberId);
+        if (!member || member.email !== input.email) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "본인 확인에 실패했습니다." });
+        }
+        if (member.kakaoMarketingConsent === input.agreed) {
+          return { success: true, alreadySame: true };
+        }
+
+        const now = new Date();
+        await updateMember(input.memberId, {
+          kakaoMarketingConsent: input.agreed,
+          kakaoMarketingConsentAt: input.agreed ? now : null,
+          kakaoMarketingConsentContent: input.agreed ? KAKAO_MARKETING_CONSENT_TEXT : null,
+        });
+        await createConsentLog({
+          memberId: input.memberId,
+          consentType: input.agreed ? "kakao_marketing" : "kakao_marketing_withdraw",
+          agreed: input.agreed,
+          consentContent: KAKAO_MARKETING_CONSENT_TEXT,
+          ipAddress: undefined,
+          userAgent: input.userAgent ?? "mypage",
+        });
+        return { success: true, alreadySame: false };
+      }),
+
     // 고객 문의 제출
     submitInquiry: publicProcedure
       .input(z.object({
@@ -711,11 +768,20 @@ export const appRouter = router({
             consentContent: "회원 탈퇴로 인한 마케팅 수신 자동 철회",
           });
         }
+        if (member.kakaoMarketingConsent) {
+          await createConsentLog({
+            memberId: input.memberId,
+            consentType: "kakao_marketing_withdraw",
+            agreed: false,
+            consentContent: "회원 탈퇴로 인한 카카오톡 광고성 정보 수신 자동 철회",
+          });
+        }
 
         // 상태 withdrawn 변경
         await updateMember(input.memberId, {
           status: "withdrawn",
           marketingConsent: false,
+          kakaoMarketingConsent: false,
           notes: `[${new Date().toLocaleDateString("ko-KR")} 탈퇴] ${input.reason ?? "사유 미기재"} | 기존 메모: ${member.notes ?? "없음"}`
         });
 

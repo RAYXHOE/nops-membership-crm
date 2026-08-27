@@ -88,6 +88,7 @@ export const memberRegistrationSchema = z.object({
   visitedBranch: z.string().trim().max(100).optional(),
   privacyConsent: z.boolean().refine((value) => value === true, "개인정보 수집 동의는 필수입니다."),
   marketingConsent: z.boolean(),
+  kakaoMarketingConsent: z.boolean(),
   ipAddress: z.string().max(45).optional(),
   userAgent: z.string().max(1000).optional(),
 });

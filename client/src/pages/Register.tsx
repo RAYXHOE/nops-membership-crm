@@ -53,6 +53,15 @@ const MARKETING_TEXT = `마케팅 정보 수신 동의서 (선택)
 
 본 동의는 선택 사항이며 거부하셔도 멤버십 가입에 불이익이 없습니다.`;
 
+const KAKAO_MARKETING_TEXT = `카카오톡 광고성 정보 수신 동의서 (선택)
+
+■ 수신 항목: 신메뉴 안내, 이벤트 정보, 프로모션 혜택, 쿠폰 안내
+■ 수신 방법: 카카오톡 브랜드 메시지
+■ 보유 기간: 동의 철회 시까지
+■ 동의 거부 시 불이익: 카카오톡 광고성 정보 수신이 제한되나, 기본 멤버십 혜택은 유지됩니다.
+
+본 동의는 선택 사항이며 거부하셔도 멤버십 가입에 불이익이 없습니다. 마이페이지에서 언제든 철회할 수 있습니다.`;
+
 const schema = memberRegistrationSchema;
 
 type FormValues = z.infer<typeof schema>;
@@ -162,6 +171,48 @@ function MarketingConsentAccordion({
   );
 }
 
+function KakaoMarketingConsentAccordion({
+  checked,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  onCheckedChange: (value: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="flex items-start gap-3 pt-4 border-t border-border/40">
+      <Checkbox
+        id="kakaoMarketingConsent"
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+        className="mt-0.5"
+      />
+      <div className="flex-1">
+        <div className="flex items-center gap-1 flex-wrap">
+          <label htmlFor="kakaoMarketingConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1">
+            <span className="text-muted-foreground text-xs font-semibold">[선택]</span>
+            카카오톡 광고성 정보 수신 동의
+          </label>
+          <button
+            type="button"
+            className="text-xs text-primary underline hover:opacity-70 flex items-center gap-0.5"
+            onClick={() => setOpen((value) => !value)}
+          >
+            내용 보기 {open ? "▲" : "▼"}
+          </button>
+        </div>
+        {open && (
+          <pre className="mt-2 p-3 bg-muted/50 rounded-lg border border-border/50 text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed font-sans">
+            {KAKAO_MARKETING_TEXT}
+          </pre>
+        )}
+      </div>
+      {checked && <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
+    </div>
+  );
+}
+
 export default function Register() {
   const [, navigate] = useLocation();
 
@@ -173,11 +224,12 @@ export default function Register() {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { privacyConsent: false, marketingConsent: false },
+    defaultValues: { privacyConsent: false, marketingConsent: false, kakaoMarketingConsent: false },
   });
 
   const privacyConsent = watch("privacyConsent");
   const marketingConsent = watch("marketingConsent");
+  const kakaoMarketingConsent = watch("kakaoMarketingConsent");
   const [birthDisplay, setBirthDisplay] = useState("");
   const [visitedBranch, setVisitedBranch] = useState("");
   const phoneField = register("phone", {
@@ -356,6 +408,10 @@ export default function Register() {
             <MarketingConsentAccordion
               checked={marketingConsent}
               onCheckedChange={(v) => setValue("marketingConsent", v)}
+            />
+            <KakaoMarketingConsentAccordion
+              checked={kakaoMarketingConsent}
+              onCheckedChange={(value) => setValue("kakaoMarketingConsent", value)}
             />
           </div>
 

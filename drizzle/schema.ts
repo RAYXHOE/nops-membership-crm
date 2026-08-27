@@ -47,6 +47,10 @@ export const members = mysqlTable("members", {
   marketingConsent: boolean("marketingConsent").notNull().default(false),
   marketingConsentAt: timestamp("marketingConsentAt"),
   marketingConsentContent: text("marketingConsentContent"),
+  // 카카오톡 광고성 정보 수신 동의 (이메일·SMS 동의와 별도 보관)
+  kakaoMarketingConsent: boolean("kakaoMarketingConsent").notNull().default(false),
+  kakaoMarketingConsentAt: timestamp("kakaoMarketingConsentAt"),
+  kakaoMarketingConsentContent: text("kakaoMarketingConsentContent"),
   // 상태
   status: mysqlEnum("status", ["active", "inactive", "withdrawn"]).default("active").notNull(),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
@@ -147,7 +151,7 @@ export type InsertPurchase = typeof purchases.$inferInsert;
 export const consentLogs = mysqlTable("consent_logs", {
   id: int("id").autoincrement().primaryKey(),
   memberId: int("memberId").notNull(),
-  consentType: mysqlEnum("consentType", ["privacy", "marketing", "marketing_withdraw"]).notNull(),
+  consentType: mysqlEnum("consentType", ["privacy", "marketing", "marketing_withdraw", "kakao_marketing", "kakao_marketing_withdraw"]).notNull(),
   agreed: boolean("agreed").notNull(),
   consentContent: text("consentContent").notNull(), // 동의 당시 약관 전문
   ipAddress: varchar("ipAddress", { length: 45 }),
