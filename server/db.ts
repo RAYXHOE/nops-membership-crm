@@ -213,10 +213,61 @@ export async function getCouponTemplateByType(type: "discount_percent" | "corkag
 }
 
 // ─── Coupons ──────────────────────────────────────────────────────────────────
+export const SIGNUP_DISCOUNT_GRANT_KEY = "signup_discount_v1";
+
+function isDuplicateKeyError(error: unknown): boolean {
+  const candidate = error as { code?: string; errno?: number; message?: string };
+  return candidate?.code === "ER_DUP_ENTRY"
+    || candidate?.errno === 1062
+    || candidate?.message?.includes("Duplicate entry") === true;
+}
+
+/**
+ * 발급 키가 있는 1회성 혜택은 회원 행을 잠근 뒤 삽입한다.
+ * DB 복합 고유 제약은 동시 트랜잭션 간 최종 안전장치 역할을 한다.
+ */
 export async function issueCoupon(data: InsertCoupon) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.insert(coupons).values(data);
+
+  // 가입 기념 10% 할인은 어떤 호출 경로에서도 회원당 한 번만 발급한다.
+  const grantKey = data.grantKey
+    ?? (data.type === "discount_percent" ? SIGNUP_DISCOUNT_GRANT_KEY : undefined);
+  const couponData = grantKey ? { ...data, grantKey } : data;
+
+  if (!grantKey) {
+    await db.insert(coupons).values(couponData);
+    return { issued: true as const };
+  }
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM members WHERE id = ${couponData.memberId} FOR UPDATE`);
+
+    const existing = await tx
+      .select({ id: coupons.id })
+      .from(coupons)
+      .where(and(eq(coupons.memberId, couponData.memberId), sql`${coupons.grantKey} = ${grantKey}`))
+      .limit(1);
+
+    if (existing[0]) {
+      return { issued: false as const, existingCouponId: existing[0].id };
+    }
+
+    try {
+      await tx.insert(coupons).values(couponData);
+      return { issued: true as const };
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        const duplicate = await tx
+          .select({ id: coupons.id })
+          .from(coupons)
+          .where(and(eq(coupons.memberId, couponData.memberId), sql`${coupons.grantKey} = ${grantKey}`))
+          .limit(1);
+        return { issued: false as const, existingCouponId: duplicate[0]?.id };
+      }
+      throw error;
+    }
+  });
 }
 
 export async function getCouponsByMemberId(memberId: number) {

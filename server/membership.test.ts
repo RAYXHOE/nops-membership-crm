@@ -25,6 +25,7 @@ vi.mock("./db", () => {
       isActive: true,
       createdAt: new Date(),
     })),
+    SIGNUP_DISCOUNT_GRANT_KEY: "signup_discount_v1",
     issueCoupon: vi.fn(async (data: { memberId: number; type: string; code: string }) => {
       coupons.push({ id: couponIdCounter++, memberId: data.memberId, type: data.type, status: "active", code: data.code });
     }),
@@ -143,6 +144,10 @@ describe("membership.register", () => {
 
     expect(result.success).toBe(true);
     expect(result.memberId).toBe(10);
+    const discountIssue = (db.issueCoupon as ReturnType<typeof vi.fn>).mock.calls
+      .map(([data]) => data as { type: string; grantKey?: string })
+      .find((data) => data.type === "discount_percent");
+    expect(discountIssue?.grantKey).toBe("signup_discount_v1");
   });
 
   it("중복 이메일 가입 시 CONFLICT 오류", async () => {

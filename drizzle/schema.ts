@@ -8,6 +8,7 @@ import {
   boolean,
   decimal,
   date,
+  uniqueIndex,
 } from "drizzle-orm/mysql-core";
 
 // ─── Core Auth User (OAuth) ───────────────────────────────────────────────────
@@ -99,7 +100,11 @@ export const coupons = mysqlTable("coupons", {
   usedNote: text("usedNote"),
   // 생일/결혼기념일 쿠폰의 경우 해당 연도 기록
   birthdayYear: int("birthdayYear"),
-});
+  // 회원별 1회성 혜택 중복 발급 방지 키 (예: signup_discount_v1)
+  grantKey: varchar("grantKey", { length: 64 }),
+}, (table) => [
+  uniqueIndex("coupons_member_grant_key_unique").on(table.memberId, table.grantKey),
+]);
 
 export type Coupon = typeof coupons.$inferSelect;
 export type InsertCoupon = typeof coupons.$inferInsert;

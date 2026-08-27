@@ -43,6 +43,13 @@
       "when": 1784283560762,
       "tag": "0005_green_strong_guy",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1787804116374,
+      "tag": "0006_medical_phalanx",
+      "breakpoints": true
     }
   ]
 }

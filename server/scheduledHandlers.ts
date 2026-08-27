@@ -7,6 +7,7 @@ import {
   getCouponTemplateByType,
   issueCoupon,
   getCouponsExpiringInDays,
+  SIGNUP_DISCOUNT_GRANT_KEY,
 } from "./db";
 import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
 import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk, sendCorkageReissueAlimtalk, sendPointsExpiryAlimtalk } from "./kakao";
@@ -430,7 +431,7 @@ export async function checkMissingCouponsHandler(req: Request, res: Response) {
     for (const member of missingMembers) {
       const expiresAt = getCouponExpiryAt(now);
       const code = `NOPS-${Array.from({ length: 8 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("")}`;
-      await issueCoupon({
+      const result = await issueCoupon({
         memberId: member.id,
         templateId: template.id,
         code,
@@ -440,9 +441,12 @@ export async function checkMissingCouponsHandler(req: Request, res: Response) {
         description: "자동 보정 발급 · " + (template.description ?? ""),
         status: "active",
         expiresAt,
+        grantKey: SIGNUP_DISCOUNT_GRANT_KEY,
       });
-      issuedNames.push(`${member.name}(${member.email})`);
-      issued++;
+      if (result.issued) {
+        issuedNames.push(`${member.name}(${member.email})`);
+        issued++;
+      }
     }
 
     // 운영자 알림 발송 (3건 이상일 때만, 회원 ID 포함)

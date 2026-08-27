@@ -48,6 +48,7 @@ import {
   usePoints,
   getPointsByMemberId,
   calcEarnPoints,
+  SIGNUP_DISCOUNT_GRANT_KEY,
 } from "./db";
 import { sendWelcomeEmail, sendOtpEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
@@ -69,8 +70,7 @@ function generateCouponCode(prefix: string): string {
 async function issueCouponWithRetry(data: Parameters<typeof issueCoupon>[0], maxRetries = 2) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      await issueCoupon(data);
-      return;
+      return await issueCoupon(data);
     } catch (err) {
       if (attempt === maxRetries) throw err;
       await new Promise(r => setTimeout(r, 1000 * attempt));
@@ -298,6 +298,7 @@ export const appRouter = router({
                 name: discountTemplate.name,
                 description: "마케팅 동의 감사 혜택 · " + (discountTemplate.description ?? ""),
                 expiresAt,
+                grantKey: SIGNUP_DISCOUNT_GRANT_KEY,
               });
               console.log(`[Register] 10% 할인 쿠폰 발급 성공: memberId=${member.id}`);
             } catch (couponErr) {
@@ -619,6 +620,7 @@ export const appRouter = router({
               name: discountTemplate.name,
               description: "마케팅 동의 감사 혜택 · " + (discountTemplate.description ?? ""),
               expiresAt,
+              grantKey: SIGNUP_DISCOUNT_GRANT_KEY,
             });
             couponsIssued++;
           }
