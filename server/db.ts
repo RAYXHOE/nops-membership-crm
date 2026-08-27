@@ -16,6 +16,7 @@ import {
   type InsertConsentLog,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { CORKAGE_REISSUE_DELAY_DAYS } from "@shared/couponPolicy";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -664,21 +665,27 @@ export async function getMembersWithBirthdayThisMonth() {
 // 구 함수명 호환성 유지
 export const getMembersWithBirthdayToday = getMembersWithBirthdayThisMonth;
 
-// 콜키지 프리 쿠폰 사용 후 14일 된 회원 조회 (재발급 대상)
-export async function getMembersForCorkageReissue() {
-  const db = await getDb();
-  if (!db) return [];
-
-  const now = new Date();
-  // 14일 전 날짜 범위 (당일 00:00 ~ 23:59)
+export function getCorkageReissueTargetWindow(now: Date = new Date()) {
+  // 사용 후 30일이 되는 날짜 범위 (당일 00:00 ~ 23:59)
   const targetStart = new Date(now);
-  targetStart.setDate(targetStart.getDate() - 14);
+  targetStart.setDate(targetStart.getDate() - CORKAGE_REISSUE_DELAY_DAYS);
   targetStart.setHours(0, 0, 0, 0);
 
   const targetEnd = new Date(targetStart);
   targetEnd.setHours(23, 59, 59, 999);
 
-  // 14일 전에 콜키지 프리 쿠폰을 사용한 회원 조회
+  return { targetStart, targetEnd };
+}
+
+// 콜키지 프리 쿠폰 사용 후 30일 된 회원 조회 (재발급 대상)
+export async function getMembersForCorkageReissue() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const now = new Date();
+  const { targetStart, targetEnd } = getCorkageReissueTargetWindow(now);
+
+  // 사용 후 30일이 된 콜키지 프리 쿠폰을 사용한 회원 조회
   const usedCoupons = await db
     .select({
       memberId: coupons.memberId,

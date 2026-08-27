@@ -12,7 +12,7 @@ import {
 import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
 import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk, sendCorkageReissueAlimtalk, sendPointsExpiryAlimtalk } from "./kakao";
 import { MISSING_POINTS_QUERY } from "./pointsMissingQuery";
-import { COUPON_EXPIRY_REMINDER_DAYS, getCouponExpiryAt } from "@shared/couponPolicy";
+import { COUPON_EXPIRY_REMINDER_DAYS, CORKAGE_REISSUE_DELAY_DAYS, getCouponExpiryAt } from "@shared/couponPolicy";
 
 function generateCouponCode(prefix: string): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -270,7 +270,7 @@ export async function anniversaryCouponHandler(req: Request, res: Response) {
 /**
  * POST /api/scheduled/corkage-reissue
  * 매일 자정(KST) 실행
- * 콜키지 프리 쿠폰 사용 후 14일 된 회원에게 자동 재발급
+ * 콜키지 프리 쿠폰 사용 후 30일 된 회원에게 자동 재발급
  */
 export async function corkageReissueHandler(req: Request, res: Response) {
   try {
@@ -287,9 +287,7 @@ export async function corkageReissueHandler(req: Request, res: Response) {
     }
 
     const now = new Date();
-    const expiresAt = new Date(now);
-    expiresAt.setDate(expiresAt.getDate() + 45);
-    expiresAt.setHours(23, 59, 59, 0);
+    const expiresAt = getCouponExpiryAt(now);
 
     let issued = 0;
 
@@ -316,8 +314,8 @@ export async function corkageReissueHandler(req: Request, res: Response) {
       issued++;
     }
 
-    console.log(`[Corkage Reissue] Issued ${issued} coupons on ${now.toISOString().slice(0, 10)}`);
-    return res.json({ ok: true, issued, date: now.toISOString().slice(0, 10) });
+    console.log(`[Corkage Reissue] Issued ${issued} coupons after ${CORKAGE_REISSUE_DELAY_DAYS} days on ${now.toISOString().slice(0, 10)}`);
+    return res.json({ ok: true, issued, reissueDelayDays: CORKAGE_REISSUE_DELAY_DAYS, date: now.toISOString().slice(0, 10) });
   } catch (err) {
     console.error("[Corkage Reissue] Error:", err);
     return res.status(500).json({ error: String(err), timestamp: new Date().toISOString() });
