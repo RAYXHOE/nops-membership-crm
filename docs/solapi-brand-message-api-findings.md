@@ -18,8 +18,16 @@ SOLAPI 브랜드 메시지 템플릿형 발송은 수신번호(`to`), 카카오 
 - 실제 발송 전 SOLAPI에서 NOPS 채널의 `M` 타게팅 인허가 및 080 수신거부 설정을 확인한다.
 - 요청 ID, 접수 결과, 실패 상세 코드, 웹훅 기반 수신 결과를 영속 로그로 분리해 기록한다.
 
+## 080 수신거부 번호 적용
+
+SOLAPI는 별도 신청 없이 공용 무료 수신거부 번호 `080-500-4233`을 제공한다. 광고성 SMS/LMS/MMS API 발송 시에는 발송 코드가 메시지 본문 끝에 `무료수신거부 080-500-4233`을 직접 삽입해야 하며, 앞부분에는 `(광고)`와 발송 주체·문의처를 표시해야 한다. 현재 NOPS 발송 코드에는 SMS 캠페인 경로나 080 번호 설정이 없으므로, SMS 발송 기능을 구현할 때 공용 번호를 고정 문구로 포함하고 SOLAPI 수신거부 목록을 CRM 발송 제외 처리와 연동해야 한다.
+
+공용 번호 수신거부는 요청 시점 기준 최근 14일 이내 발송된 번호를 함께 차단할 수 있으므로, 특정 NOPS 발신번호만 선택해 거부하는 방식은 지원하지 않는다. 전용 번호가 필요하면 SOLAPI 고객센터 또는 080 서비스 사업자에게 별도 개통 가능 여부를 문의한다.
+
 ## 출처
 
 1. [SOLAPI 브랜드 메시지 템플릿형 발송 API](https://solapi.com/developers/api/kakao-bms-templates)
 2. [SOLAPI 브랜드 메시지 발송 안내](https://solapi.com/blog/sedning-kakao-messages-with-solapi)
 3. [카카오 비즈니스 브랜드 메시지 안내](https://business.kakao.com/info/brandmessage/)
+4. [SOLAPI 광고성 메시지 발송 가이드](https://solapi.com/guides/sms-ad-guide)
+5. [SOLAPI 수신/발신 거부 가이드](https://solapi.com/guides/blocklist)
