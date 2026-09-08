@@ -227,7 +227,12 @@ export async function getOrCreateSepCombo2026Template() {
     validDays: SEP_COMBO_2026.templateValidityDays,
     isActive: true,
   }).onDuplicateKeyUpdate({
-    set: { isActive: true },
+    set: {
+      discountPercent: SEP_COMBO_2026.discountPercent,
+      description: SEP_COMBO_2026.description,
+      validDays: SEP_COMBO_2026.templateValidityDays,
+      isActive: true,
+    },
   });
 
   const result = await db.select()
