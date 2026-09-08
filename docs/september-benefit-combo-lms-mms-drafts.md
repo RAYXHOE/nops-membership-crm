@@ -71,7 +71,7 @@ https://membership.nops.kr/mypage?utm_source=sms&utm_medium=lms&utm_campaign=sep
 > #{이름}님, 9월 신메뉴 출시 기념 NOPS 멤버십 전용 콤보 전 메뉴 10% 할인 쿠폰이 발급되었습니다.
 >
 > 쿠폰 확인: https://membership.nops.kr/mypage?utm_source=sms&utm_medium=mms&utm_campaign=sep_combo_2026
-> 사용 기간: **[실제 쿠폰 만료일과 동일한 날짜]까지**
+> 사용 기간: **2026.10.11까지**
 > 적용 메뉴: 콤보 전 메뉴(런치 / 디너 / 베네핏 신메뉴)
 > 메뉴 확인: https://pf.kakao.com/_AAxjEn/114522532
 > 문의: 02-597-4030
@@ -79,7 +79,7 @@ https://membership.nops.kr/mypage?utm_source=sms&utm_medium=lms&utm_campaign=sep
 
 사용자가 제공한 메뉴 확인 링크는 카카오톡 채널 ‘놉스’ 페이지로 연결되는 것을 확인했다. SMS 본문에는 동일한 채널 URL을 중복으로 넣지 않는다. 메뉴 확인 링크 하나로 충분하며, 채널 홈 링크를 추가하려면 `https://pf.kakao.com/_AAxjEn`이 실제 공식 채널로 열리는지 발송 전 단말기에서 다시 확인한다.
 
-> **기간 일치 필수:** 2026-09-08 현재 발급된 2,744장 쿠폰의 실제 만료일은 2026-10-05 23:59:59 KST다. 따라서 위 초안의 사용 기간을 `2026.10.11`로 확정하려면 발송 전에 쿠폰 2,744장의 실제 만료일을 2026-10-11 23:59:59 KST로 함께 연장해야 한다. 이 변경 전에는 `2026.10.05`로 표기한다.
+> **기간 일치:** 승인에 따라 쿠폰 2,744장과 MMS 안내의 사용 기간을 2026-10-11 23:59:59 KST로 통일한다. 발송 전 실제 데이터 검증을 완료해야 한다.
 
 ## LMS 초안 — 이미지 없이 즉시 발송 가능한 안
 

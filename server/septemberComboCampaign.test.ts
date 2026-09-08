@@ -45,10 +45,10 @@ afterEach(() => {
 });
 
 describe("9월 베네핏 콤보 이벤트 쿠폰 정책", () => {
-  it("DB 초 단위 정밀도에서도 2026-10-05 23:59:59 KST를 고정 만료일로 사용한다", () => {
-    expect(getSepCombo2026ExpiryAt().toISOString()).toBe("2026-10-05T14:59:59.000Z");
+  it("DB 초 단위 정밀도에서도 2026-10-11 23:59:59 KST를 고정 만료일로 사용한다", () => {
+    expect(getSepCombo2026ExpiryAt().toISOString()).toBe("2026-10-11T14:59:59.000Z");
     expect(SEP_COMBO_2026.discountPercent).toBe(10);
-    expect(SEP_COMBO_2026.templateValidityDays).toBe(27);
+    expect(SEP_COMBO_2026.templateValidityDays).toBe(33);
     expect(SEP_COMBO_2026.grantKey).toBe("sep_combo_2026_v1");
   });
 
