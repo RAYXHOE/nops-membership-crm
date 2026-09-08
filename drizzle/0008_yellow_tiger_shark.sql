@@ -1,0 +1,1 @@
+ALTER TABLE `coupon_templates` ADD CONSTRAINT `coupon_templates_name_unique` UNIQUE(`name`);

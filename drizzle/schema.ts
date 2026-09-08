@@ -80,7 +80,9 @@ export const couponTemplates = mysqlTable("coupon_templates", {
   validDays: int("validDays").notNull().default(365), // 발급 후 유효 기간(일)
   isActive: boolean("isActive").notNull().default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("coupon_templates_name_unique").on(table.name),
+]);
 
 export type CouponTemplate = typeof couponTemplates.$inferSelect;
 export type InsertCouponTemplate = typeof couponTemplates.$inferInsert;

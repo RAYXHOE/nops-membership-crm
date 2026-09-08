@@ -2,7 +2,7 @@ import { useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import QrScannerModal from "@/components/QrScannerModal";
 import { trpc } from "@/lib/trpc";
-import { Tag, CheckCircle2, Filter, RefreshCw, QrCode, Search, RotateCcw, MapPin, Download, Calendar } from "lucide-react";
+import { Tag, CheckCircle2, Filter, RefreshCw, QrCode, Search, RotateCcw, MapPin, Download, Calendar, Send, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +69,35 @@ export default function AdminCoupons() {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  const sepComboPreview = trpc.admin.previewSepCombo2026Campaign.useQuery();
+  const sepComboIssueMutation = trpc.admin.issueSepCombo2026CampaignBatch.useMutation({
+    onSuccess: (data) => {
+      utils.admin.previewSepCombo2026Campaign.invalidate();
+      utils.admin.listCoupons.invalidate();
+      if (data.failures.length > 0) {
+        toast.error(`${data.issued}건 발급, ${data.failures.length}건 실패. 다음 발급 전 실패 목록을 확인하세요.`);
+        return;
+      }
+      toast.success(`${data.issued}건 발급 완료 · 잔여 ${data.remaining}건`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const issueSepComboBatch = () => {
+    const eligibleCount = sepComboPreview.data?.eligibleCount ?? 0;
+    if (eligibleCount === 0) {
+      toast.message("현재 발급 대상이 없습니다.");
+      return;
+    }
+    const batchSize = Math.min(200, eligibleCount);
+    const approved = window.confirm(
+      `9월 베네핏 콤보 10% 이벤트 쿠폰을 ${batchSize}명에게 발급합니다.\n\n` +
+      `대상: 활성 SMS 마케팅 동의 회원\n유효기간: 2026년 10월 5일 23:59 KST\n조건: 콤보 전 메뉴(런치·디너·베네핏 멤버십 특전 포함), 타 할인 중복 불가\n\n발급 후에는 취소하지 않습니다. 계속하시겠습니까?`
+    );
+    if (!approved) return;
+    sepComboIssueMutation.mutate({ confirmation: "SEP_COMBO_2026_ISSUE", batchSize });
+  };
 
   const [scannerOpen, setScannerOpen] = useState(false);
   const items = query.data?.items ?? [];
@@ -154,6 +183,40 @@ export default function AdminCoupons() {
             만료 처리 실행
           </Button>
         </div>
+
+        {/* 9월 이벤트 쿠폰: 실제 발급은 슈퍼 어드민의 명시적 확인 후 200건 단위로만 진행 */}
+        <section className="mb-6 rounded-2xl border border-primary/20 bg-primary/[0.035] p-5">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+            <div>
+              <div className="mb-1 flex items-center gap-2 text-primary">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="text-xs font-semibold tracking-wide">SEPTEMBER CAMPAIGN</span>
+              </div>
+              <h2 className="text-base font-bold text-foreground">베네핏 콤보 10% 이벤트 쿠폰</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                활성 SMS 마케팅 동의 회원 · 콤보 전 메뉴(런치·디너·베네핏 멤버십 특전 포함) · 타 할인 중복 불가
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                <span>유효기간 <strong className="text-foreground">2026.10.05 23:59 KST</strong></span>
+                <span>현재 발급 대상 <strong className="text-foreground">{sepComboPreview.isLoading ? "집계 중" : `${(sepComboPreview.data?.eligibleCount ?? 0).toLocaleString()}명`}</strong></span>
+                <span>회원당 <strong className="text-foreground">1회</strong></span>
+              </div>
+            </div>
+            <Button
+              className="gap-2 shrink-0"
+              onClick={issueSepComboBatch}
+              disabled={sepComboPreview.isLoading || sepComboIssueMutation.isPending || (sepComboPreview.data?.eligibleCount ?? 0) === 0}
+            >
+              <Send className="h-4 w-4" />
+              {sepComboIssueMutation.isPending ? "발급 중..." : `다음 ${Math.min(200, sepComboPreview.data?.eligibleCount ?? 200)}명 발급`}
+            </Button>
+          </div>
+          {sepComboPreview.data && sepComboPreview.data.sample.length > 0 && (
+            <p className="mt-4 border-t border-primary/10 pt-3 text-xs text-muted-foreground">
+              대상 예시: {sepComboPreview.data.sample.map((member) => `${member.name} (${member.visitedBranch ?? "방문 매장 미지정"})`).join(", ")}
+            </p>
+          )}
+        </section>
 
         {/* Filters */}
         <div className="bg-card rounded-2xl border border-border/50 p-4 mb-6">

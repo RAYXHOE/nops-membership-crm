@@ -17,6 +17,7 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { CORKAGE_REISSUE_DELAY_DAYS } from "@shared/couponPolicy";
+import { SEP_COMBO_2026 } from "@shared/septemberComboCampaign";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -211,6 +212,77 @@ export async function getCouponTemplateByType(type: "discount_percent" | "corkag
     .where(sql`${couponTemplates.type} = ${type} AND ${couponTemplates.isActive} = 1`)
     .limit(1);
   return result[0];
+}
+
+/** 9월 베네핏 콤보 캠페인 템플릿은 최초 일괄 발급 때만 생성한다. */
+export async function getOrCreateSepCombo2026Template() {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  await db.insert(couponTemplates).values({
+    name: SEP_COMBO_2026.templateName,
+    type: "discount_percent",
+    discountPercent: SEP_COMBO_2026.discountPercent,
+    description: SEP_COMBO_2026.description,
+    validDays: SEP_COMBO_2026.templateValidityDays,
+    isActive: true,
+  }).onDuplicateKeyUpdate({
+    set: { isActive: true },
+  });
+
+  const result = await db.select()
+    .from(couponTemplates)
+    .where(eq(couponTemplates.name, SEP_COMBO_2026.templateName))
+    .limit(1);
+  if (!result[0]) throw new Error("9월 이벤트 쿠폰 템플릿을 생성할 수 없습니다.");
+  return result[0];
+}
+
+/** SMS 마케팅 동의 활성 회원 중 9월 이벤트 쿠폰이 아직 없는 대상. */
+export async function getSepCombo2026EligibleMembers(limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  await db.execute(sql`SET SESSION tidb_replica_read = 'leader'`);
+  const { isNull } = await import("drizzle-orm");
+
+  return db.select({
+    id: members.id,
+    name: members.name,
+    email: members.email,
+    phone: members.phone,
+    visitedBranch: members.visitedBranch,
+  })
+    .from(members)
+    .leftJoin(coupons, and(
+      eq(coupons.memberId, members.id),
+      eq(coupons.grantKey, SEP_COMBO_2026.grantKey),
+    ))
+    .where(and(
+      eq(members.status, "active"),
+      eq(members.marketingConsent, true),
+      isNull(coupons.id),
+    ))
+    .orderBy(members.id)
+    .limit(limit);
+}
+
+export async function getSepCombo2026EligibleMemberCount() {
+  const db = await getDb();
+  if (!db) return 0;
+  await db.execute(sql`SET SESSION tidb_replica_read = 'leader'`);
+  const { isNull } = await import("drizzle-orm");
+  const result = await db.select({ count: sql<number>`count(*)` })
+    .from(members)
+    .leftJoin(coupons, and(
+      eq(coupons.memberId, members.id),
+      eq(coupons.grantKey, SEP_COMBO_2026.grantKey),
+    ))
+    .where(and(
+      eq(members.status, "active"),
+      eq(members.marketingConsent, true),
+      isNull(coupons.id),
+    ));
+  return Number(result[0]?.count ?? 0);
 }
 
 // ─── Coupons ──────────────────────────────────────────────────────────────────

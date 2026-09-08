@@ -13,6 +13,7 @@ import {
   deleteVisit,
   getCouponByCode,
   getCouponsByMemberId,
+  getOrCreateSepCombo2026Template,
   getCouponStats,
   getCouponTemplateByType,
   getConsentLogsByMemberId,
@@ -22,6 +23,8 @@ import {
   getMemberByNameAndPhone,
   getMemberStats,
   getMembersWithBirthdayToday,
+  getSepCombo2026EligibleMemberCount,
+  getSepCombo2026EligibleMembers,
   getPurchaseStats,
   getPurchasesByMemberId,
   getVisitsByMemberId,
@@ -55,6 +58,7 @@ import { sendWelcomeAlimtalk } from "./kakao";
 import { createOtp, verifyOtp as verifyOtpDb } from "./db";
 import { memberRegistrationSchema } from "@shared/memberRegistration";
 import { getCouponExpiryAt } from "@shared/couponPolicy";
+import { getSepCombo2026ExpiryAt, SEP_COMBO_2026 } from "@shared/septemberComboCampaign";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -905,6 +909,69 @@ export const appRouter = router({
       }),
 
     // ─── 쿠폰 관리 ──────────────────────────────────────────────────────────
+    previewSepCombo2026Campaign: superAdminProcedure.query(async () => {
+      const [eligibleCount, sample] = await Promise.all([
+        getSepCombo2026EligibleMemberCount(),
+        getSepCombo2026EligibleMembers(10),
+      ]);
+
+      return {
+        campaign: {
+          code: SEP_COMBO_2026.code,
+          name: SEP_COMBO_2026.couponName,
+          discountPercent: SEP_COMBO_2026.discountPercent,
+          description: SEP_COMBO_2026.description,
+          expiresAt: getSepCombo2026ExpiryAt(),
+          targetDescription: SEP_COMBO_2026.targetDescription,
+        },
+        eligibleCount,
+        sample,
+      };
+    }),
+
+    issueSepCombo2026CampaignBatch: superAdminProcedure
+      .input(z.object({
+        confirmation: z.literal("SEP_COMBO_2026_ISSUE"),
+        batchSize: z.number().min(1).max(200).default(200),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const [template, targets] = await Promise.all([
+          getOrCreateSepCombo2026Template(),
+          getSepCombo2026EligibleMembers(input.batchSize),
+        ]);
+
+        let issued = 0;
+        let skipped = 0;
+        const failures: Array<{ memberId: number; message: string }> = [];
+
+        for (const member of targets) {
+          try {
+            const result = await issueCouponWithRetry({
+              memberId: member.id,
+              templateId: template.id,
+              code: generateCouponCode("SEP"),
+              type: "discount_percent",
+              discountPercent: SEP_COMBO_2026.discountPercent,
+              name: SEP_COMBO_2026.couponName,
+              description: SEP_COMBO_2026.description,
+              expiresAt: getSepCombo2026ExpiryAt(),
+              grantKey: SEP_COMBO_2026.grantKey,
+            });
+            if (!result) {
+              throw new Error("쿠폰 발급 결과를 확인할 수 없습니다.");
+            }
+            if (result.issued) issued++;
+            else skipped++;
+          } catch (error) {
+            failures.push({ memberId: member.id, message: error instanceof Error ? error.message : String(error) });
+          }
+        }
+
+        const remaining = await getSepCombo2026EligibleMemberCount();
+        console.info(`[SepCombo2026] batch issued=${issued} skipped=${skipped} failed=${failures.length} remaining=${remaining} by=${ctx.user.id}`);
+        return { issued, skipped, failures, remaining, processed: targets.length };
+      }),
+
     listCoupons: branchAdminProcedure
       .input(
         z.object({
