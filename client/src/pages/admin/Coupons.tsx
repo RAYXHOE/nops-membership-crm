@@ -92,8 +92,8 @@ export default function AdminCoupons() {
     }
     const batchSize = Math.min(200, eligibleCount);
     const approved = window.confirm(
-      `9월 베네핏 콤보 10% 이벤트 쿠폰을 ${batchSize}명에게 발급합니다.\n\n` +
-      `대상: 활성 SMS 마케팅 동의 회원\n유효기간: 2026년 10월 5일 23:59 KST\n조건: 콤보 전 메뉴(런치·디너·베네핏 멤버십 특전 포함), 타 할인 중복 불가\n\n발급 후에는 취소하지 않습니다. 계속하시겠습니까?`
+      `9월 콤보 전 메뉴 10% 이벤트 쿠폰을 ${batchSize}명에게 발급합니다.\n\n` +
+      `대상: 활성 SMS 마케팅 동의 회원\n유효기간: 2026년 10월 11일 23:59 KST\n조건: 콤보 전 메뉴(런치·디너·베네핏 신메뉴 포함), 타 할인 중복 불가\n\n발급 후에는 취소하지 않습니다. 계속하시겠습니까?`
     );
     if (!approved) return;
     sepComboIssueMutation.mutate({ confirmation: "SEP_COMBO_2026_ISSUE", batchSize });
@@ -192,12 +192,12 @@ export default function AdminCoupons() {
                 <ShieldCheck className="h-4 w-4" />
                 <span className="text-xs font-semibold tracking-wide">SEPTEMBER CAMPAIGN</span>
               </div>
-              <h2 className="text-base font-bold text-foreground">베네핏 콤보 10% 이벤트 쿠폰</h2>
+              <h2 className="text-base font-bold text-foreground">콤보 전 메뉴 10% 이벤트 쿠폰</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                활성 SMS 마케팅 동의 회원 · 콤보 전 메뉴(런치·디너·베네핏 멤버십 특전 포함) · 타 할인 중복 불가
+                활성 SMS 마케팅 동의 회원 · 콤보 전 메뉴(런치·디너·베네핏 신메뉴 포함) · 타 할인 중복 불가
               </p>
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                <span>유효기간 <strong className="text-foreground">2026.10.05 23:59 KST</strong></span>
+                <span>유효기간 <strong className="text-foreground">2026.10.11 23:59 KST</strong></span>
                 <span>현재 발급 대상 <strong className="text-foreground">{sepComboPreview.isLoading ? "집계 중" : `${(sepComboPreview.data?.eligibleCount ?? 0).toLocaleString()}명`}</strong></span>
                 <span>회원당 <strong className="text-foreground">1회</strong></span>
               </div>

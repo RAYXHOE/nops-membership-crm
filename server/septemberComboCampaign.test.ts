@@ -44,7 +44,7 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe("9월 베네핏 콤보 이벤트 쿠폰 정책", () => {
+describe("9월 콤보 전 메뉴 이벤트 쿠폰 정책", () => {
   it("DB 초 단위 정밀도에서도 2026-10-11 23:59:59 KST를 고정 만료일로 사용한다", () => {
     expect(getSepCombo2026ExpiryAt().toISOString()).toBe("2026-10-11T14:59:59.000Z");
     expect(SEP_COMBO_2026.discountPercent).toBe(10);

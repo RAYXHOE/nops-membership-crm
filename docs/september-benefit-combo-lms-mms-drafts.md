@@ -1,4 +1,4 @@
-# 9월 베네핏 콤보 10% 쿠폰: LMS·MMS 발송 초안
+# 9월 콤보 전 메뉴 10% 쿠폰: LMS·MMS 발송 초안
 
 작성일: 2026-09-02  
 대상: 멤버십 회원 중 SMS 마케팅 수신 동의·활성 상태·수신거부 미등록 고객
@@ -68,7 +68,7 @@ https://membership.nops.kr/mypage?utm_source=sms&utm_medium=lms&utm_campaign=sep
 ### 2026-09-08 수정 초안 — 요청 문구 반영
 
 > (광고)[NOPS]
-> #{이름}님, 9월 신메뉴 출시 기념 NOPS 멤버십 전용 콤보 전 메뉴 10% 할인 쿠폰이 발급되었습니다.
+> #{이름}님, 9월 콤보 전 메뉴 10% 할인 쿠폰이 발급되었습니다.
 >
 > 쿠폰 확인: https://membership.nops.kr/mypage?utm_source=sms&utm_medium=mms&utm_campaign=sep_combo_2026
 > 사용 기간: **2026.10.11까지**
