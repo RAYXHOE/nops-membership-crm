@@ -91,7 +91,7 @@ describe("membership.updateMarketingConsent", () => {
     vi.clearAllMocks();
   });
 
-  it("마케팅 동의 시 쿠폰 2장 발급", async () => {
+  it("통합 마케팅 동의 시 이메일·SMS/LMS·카카오톡 동의를 함께 저장하고 쿠폰 2장을 발급", async () => {
     const db = await import("./db");
     (db.getMemberById as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockMember,
@@ -120,6 +120,14 @@ describe("membership.updateMarketingConsent", () => {
     expect(result.couponsIssued).toBe(2); // 할인 쿠폰 + 생일 쿠폰
     expect(result.alreadySame).toBe(false);
     expect(db.issueCoupon).toHaveBeenCalledTimes(2);
+    expect(db.updateMember).toHaveBeenCalledWith(1, expect.objectContaining({
+      marketingConsent: true,
+      kakaoMarketingConsent: true,
+    }));
+    expect(db.createConsentLog).toHaveBeenCalledWith(expect.objectContaining({
+      consentType: "kakao_marketing",
+      agreed: true,
+    }));
   });
 
   it("이미 쿠폰 있는 경우 중복 발급 안 함", async () => {
@@ -128,9 +136,9 @@ describe("membership.updateMarketingConsent", () => {
       ...mockMember,
       marketingConsent: false,
     });
-    // 이미 할인 쿠폰과 생일 쿠폰 보유
+    // 이미 통합 마케팅 가입 혜택 쿠폰과 생일 쿠폰 보유
     (db.getCouponsByMemberId as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { id: 1, type: "discount_percent", status: "active", birthdayYear: null },
+      { id: 1, type: "discount_percent", status: "active", birthdayYear: null, grantKey: "signup_discount_v1" },
       { id: 2, type: "birthday", status: "active", birthdayYear: new Date().getFullYear() },
     ]);
 
@@ -150,7 +158,8 @@ describe("membership.updateMarketingConsent", () => {
     const db = await import("./db");
     (db.getMemberById as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockMember,
-      marketingConsent: true, // 이미 동의
+      marketingConsent: true,
+      kakaoMarketingConsent: true, // 통합 동의 완료
     });
 
     const caller = appRouter.createCaller(createPublicCtx());

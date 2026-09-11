@@ -91,6 +91,12 @@ export const memberRegistrationSchema = z.object({
   kakaoMarketingConsent: z.boolean(),
   ipAddress: z.string().max(45).optional(),
   userAgent: z.string().max(1000).optional(),
-});
+}).refine(
+  (data) => data.marketingConsent === data.kakaoMarketingConsent,
+  {
+    message: "마케팅 정보 수신 동의는 이메일·SMS/LMS·카카오톡 NOPS 채널에 함께 적용됩니다.",
+    path: ["kakaoMarketingConsent"],
+  }
+);
 
 export type MemberRegistrationInput = z.infer<typeof memberRegistrationSchema>;

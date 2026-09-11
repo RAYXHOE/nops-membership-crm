@@ -46,19 +46,10 @@ const PRIVACY_TEXT = `개인정보 수집·이용 동의서
 
 const MARKETING_TEXT = `마케팅 정보 수신 동의서 (선택)
 
-■ 수신 항목: 신메뉴 안내, 이벤트 정보, 프로모션 혜택
-■ 수신 방법: 이메일, SMS
+■ 수신 항목: 신메뉴 안내, 이벤트 정보, 프로모션 혜택, 쿠폰 안내
+■ 수신 방법: 이메일, SMS/LMS, 카카오톡 NOPS 채널
 ■ 보유 기간: 동의 철회 시까지
 ■ 동의 거부 시 불이익: 마케팅 정보 수신이 제한되나, 기본 멤버십 혜택은 유지됩니다.
-
-본 동의는 선택 사항이며 거부하셔도 멤버십 가입에 불이익이 없습니다.`;
-
-const KAKAO_MARKETING_TEXT = `카카오톡 광고성 정보 수신 동의서 (선택)
-
-■ 수신 항목: 신메뉴 안내, 이벤트 정보, 프로모션 혜택, 쿠폰 안내
-■ 수신 방법: 카카오톡 브랜드 메시지
-■ 보유 기간: 동의 철회 시까지
-■ 동의 거부 시 불이익: 카카오톡 광고성 정보 수신이 제한되나, 기본 멤버십 혜택은 유지됩니다.
 
 본 동의는 선택 사항이며 거부하셔도 멤버십 가입에 불이익이 없습니다. 마이페이지에서 언제든 철회할 수 있습니다.`;
 
@@ -139,15 +130,16 @@ function MarketingConsentAccordion({
         className="mt-0.5"
       />
       <div className="flex-1">
-        <div className="flex items-center gap-1 flex-wrap">
-          <label htmlFor="marketingConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1">
-            <span className="text-muted-foreground text-xs font-semibold">[선택]</span>
+        <div>
+          <label htmlFor="marketingConsent" className="text-sm text-foreground cursor-pointer leading-5 block">
+            <span className="text-muted-foreground text-xs font-semibold">[선택]</span>{" "}
             마케팅 정보 수신 동의
-            <span className="text-xs text-muted-foreground">(국외 이전 포함/미국 AWS 서버)</span>
+            <span className="block text-xs text-muted-foreground">이메일·SMS/LMS·카카오톡 NOPS 채널</span>
+            <span className="block text-xs text-muted-foreground">(국외 이전 포함/미국 AWS 서버)</span>
           </label>
           <button
             type="button"
-            className="text-xs text-primary underline hover:opacity-70 flex items-center gap-0.5"
+            className="mt-1 text-xs text-primary underline hover:opacity-70 inline-flex items-center gap-0.5"
             onClick={() => setOpen((o) => !o)}
           >
             내용 보기 {open ? "▲" : "▼"}
@@ -155,57 +147,13 @@ function MarketingConsentAccordion({
         </div>
         {open && (
           <div className="mt-2 p-3 bg-muted/50 rounded-lg border border-border/50 text-xs text-muted-foreground space-y-1">
-            <p><span className="font-semibold text-foreground">수집 항목:</span> 이름, 이메일, 전화번호, 생년월일</p>
-            <p><span className="font-semibold text-foreground">이전 국가:</span> 미국 (AWS us-east-1, 버지니아 북부)</p>
-            <p><span className="font-semibold text-foreground">수탁 업체:</span> PingCAP, Inc. (TiDB Cloud) / Amazon Web Services, Inc.</p>
-            <p><span className="font-semibold text-foreground">이전 목적:</span> 멤버십 데이터베이스 운영 및 서비스 제공</p>
-            <p><span className="font-semibold text-foreground">보유 기간:</span> 회원 탈퇴 후 5년</p>
+            <p><span className="font-semibold text-foreground">수신 채널:</span> 이메일, SMS/LMS, 카카오톡 NOPS 채널</p>
+            <p><span className="font-semibold text-foreground">수신 내용:</span> 신메뉴, 이벤트, 프로모션 혜택, 쿠폰 안내</p>
+            <p><span className="font-semibold text-foreground">보유 기간:</span> 동의 철회 시까지</p>
             <div className="pt-1 border-t border-border/30">
-              <p className="text-primary text-xs font-semibold">✓ 동의 시 혜택: 10% 할인 쿠폰 + 생일 15% 쿠폰 즉시 발급</p>
+              <p className="text-primary text-xs font-semibold">✓ 세 채널 모두 동의 시 혜택: 10% 할인 쿠폰 + 생일 15% 쿠폰 즉시 발급</p>
             </div>
           </div>
-        )}
-      </div>
-      {checked && <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
-    </div>
-  );
-}
-
-function KakaoMarketingConsentAccordion({
-  checked,
-  onCheckedChange,
-}: {
-  checked: boolean;
-  onCheckedChange: (value: boolean) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="flex items-start gap-3 pt-4 border-t border-border/40">
-      <Checkbox
-        id="kakaoMarketingConsent"
-        checked={checked}
-        onCheckedChange={(value) => onCheckedChange(value === true)}
-        className="mt-0.5"
-      />
-      <div className="flex-1">
-        <div className="flex items-center gap-1 flex-wrap">
-          <label htmlFor="kakaoMarketingConsent" className="text-sm text-foreground cursor-pointer flex items-center gap-1">
-            <span className="text-muted-foreground text-xs font-semibold">[선택]</span>
-            카카오톡 광고성 정보 수신 동의
-          </label>
-          <button
-            type="button"
-            className="text-xs text-primary underline hover:opacity-70 flex items-center gap-0.5"
-            onClick={() => setOpen((value) => !value)}
-          >
-            내용 보기 {open ? "▲" : "▼"}
-          </button>
-        </div>
-        {open && (
-          <pre className="mt-2 p-3 bg-muted/50 rounded-lg border border-border/50 text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed font-sans">
-            {KAKAO_MARKETING_TEXT}
-          </pre>
         )}
       </div>
       {checked && <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
@@ -287,7 +235,8 @@ export default function Register() {
           <h1 className="text-3xl font-extrabold text-foreground mb-3">멤버십 가입</h1>
           <p className="text-muted-foreground text-sm">
             가입 즉시 사용 가능한 <span className="font-semibold text-foreground">"콜키지 프리" 쿠폰</span>과<br />
-            마케팅 동의 시 <span className="font-semibold text-foreground">"10% 할인 쿠폰 · 생일 15% 할인 쿠폰"</span>이 발급됩니다.
+            이메일·SMS/LMS·카카오톡 NOPS 채널 마케팅 정보 수신 동의 시<br />
+            <span className="font-semibold text-foreground">"10% 할인 쿠폰 · 생일 15% 할인 쿠폰"</span>이 발급됩니다.
           </p>
         </div>
 
@@ -404,14 +353,13 @@ export default function Register() {
               <p className="text-destructive text-xs ml-7">{errors.privacyConsent.message}</p>
             )}
 
-            {/* 마케팅 동의 - 아코디언 방식 */}
+            {/* 통합 마케팅 동의: 저장 시 이메일·SMS/LMS·카카오톡 동의를 함께 기록 */}
             <MarketingConsentAccordion
-              checked={marketingConsent}
-              onCheckedChange={(v) => setValue("marketingConsent", v)}
-            />
-            <KakaoMarketingConsentAccordion
-              checked={kakaoMarketingConsent}
-              onCheckedChange={(value) => setValue("kakaoMarketingConsent", value)}
+              checked={marketingConsent && kakaoMarketingConsent}
+              onCheckedChange={(v) => {
+                setValue("marketingConsent", v, { shouldValidate: true });
+                setValue("kakaoMarketingConsent", v, { shouldValidate: true });
+              }}
             />
           </div>
 

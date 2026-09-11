@@ -101,7 +101,7 @@ const PRIVACY_CONSENT_TEXT = `개인정보 수집·이용 동의서
 const MARKETING_CONSENT_TEXT = `마케팅 정보 수신 동의서
 
 수신 항목: 신메뉴 안내, 이벤트 정보, 프로모션 혜택
-수신 방법: 이메일, SMS
+수신 방법: 이메일, SMS/LMS, 카카오톡 NOPS 채널
 보유 기간: 동의 철회 시까지
 동의 거부 시 불이익: 마케팅 정보 수신이 제한되나, 기본 멤버십 혜택은 유지됩니다.`;
 
@@ -225,6 +225,9 @@ export const appRouter = router({
         }
 
         const now = new Date();
+        // 가입 화면의 단일 동의 체크박스는 세 채널 동의를 함께 저장한다.
+        // 직접 API 호출 등으로 일부 동의 값이 전달되더라도 가입 혜택 쿠폰은 세 채널 동의가 모두 있을 때만 발급한다.
+        const hasAllMarketingConsents = input.marketingConsent && input.kakaoMarketingConsent;
 
         // 회원 생성
         await createMember({
@@ -311,8 +314,8 @@ export const appRouter = router({
           }
         }
 
-        // 마케팅 동의 시 추가 혜택: 10% 할인 쿠폰 + 생일 쿠폰
-        if (input.marketingConsent) {
+        // 이메일·SMS/LMS·카카오톡 NOPS 채널 동의 시 추가 혜택: 10% 할인 쿠폰 + 생일 쿠폰
+        if (hasAllMarketingConsents) {
           if (discountTemplate) {
             const expiresAt = getCouponExpiryAt(now);
             try {
@@ -332,11 +335,11 @@ export const appRouter = router({
               console.error(`[CouponIssue] Failed for memberId=${member.id} type=discount_percent`, couponErr);
             }
           } else {
-            console.error(`[Register] ⚠️ discount_percent 템플릿을 찾을 수 없음: memberId=${member.id}, marketingConsent=true`);
+            console.error(`[Register] ⚠️ discount_percent 템플릿을 찾을 수 없음: memberId=${member.id}, allMarketingConsents=true`);
           }
 
           // 생일 쿠폰: 마케팅 동의 + 가입 월 = 생일 월이면 즉시 발급 (연도 중복 제외)
-          if (birthdayTemplate && input.birthDate && input.marketingConsent) {
+          if (birthdayTemplate && input.birthDate && hasAllMarketingConsents) {
             const birthMonth = new Date(input.birthDate).getMonth() + 1;
             const joinMonth = now.getMonth() + 1;
             const joinYear = now.getFullYear();
@@ -430,7 +433,7 @@ export const appRouter = router({
         return getCouponsByMemberId(input.memberId);
       }),
 
-    // 마케팅 동의 변경 (마이페이지 철회 전용)
+    // 통합 마케팅 동의 변경 (기존 클라이언트 호환용): 이메일·SMS/LMS·카카오톡을 함께 저장·철회
     updateMarketing: publicProcedure
       .input(z.object({ memberId: z.number(), marketingConsent: z.boolean() }))
       .mutation(async ({ input }) => {
@@ -447,7 +450,19 @@ export const appRouter = router({
         });
         await updateMember(input.memberId, {
           marketingConsent: input.marketingConsent,
-          marketingConsentAt: input.marketingConsent ? now : undefined,
+          marketingConsentAt: input.marketingConsent ? now : null,
+          marketingConsentContent: input.marketingConsent ? MARKETING_CONSENT_TEXT : null,
+          kakaoMarketingConsent: input.marketingConsent,
+          kakaoMarketingConsentAt: input.marketingConsent ? now : null,
+          kakaoMarketingConsentContent: input.marketingConsent ? KAKAO_MARKETING_CONSENT_TEXT : null,
+        });
+        await createConsentLog({
+          memberId: input.memberId,
+          consentType: input.marketingConsent ? "kakao_marketing" : "kakao_marketing_withdraw",
+          agreed: input.marketingConsent,
+          consentContent: KAKAO_MARKETING_CONSENT_TEXT,
+          ipAddress: undefined,
+          userAgent: "mypage",
         });
 
         // 마케팅 동의 시: 생일 월 / 기념일 월이면 쿠폰 즉시 발급
@@ -579,7 +594,7 @@ export const appRouter = router({
         return { success: true };
       }),
 
-    // 마케팅 동의 변경 (마이페이지에서 고객이 직접 변경)
+    // 통합 마케팅 동의 변경: 이메일·SMS/LMS·카카오톡 NOPS 채널을 함께 저장·철회
     updateMarketingConsent: publicProcedure
       .input(
         z.object({
@@ -596,18 +611,21 @@ export const appRouter = router({
           throw new TRPCError({ code: "FORBIDDEN", message: "본인 확인에 실패했습니다." });
         }
 
-        // 이미 같은 상태면 스킵
-        if (member.marketingConsent === input.agreed) {
+        // 세 채널 통합 상태가 이미 같은 경우만 스킵한다.
+        if (member.marketingConsent === input.agreed && member.kakaoMarketingConsent === input.agreed) {
           return { success: true, couponsIssued: 0, alreadySame: true };
         }
 
         const now = new Date();
 
-        // 동의 상태 업데이트
+        // 통합 동의 상태 업데이트
         await updateMember(input.memberId, {
           marketingConsent: input.agreed,
-          marketingConsentAt: input.agreed ? now : undefined,
-          marketingConsentContent: input.agreed ? MARKETING_CONSENT_TEXT : undefined,
+          marketingConsentAt: input.agreed ? now : null,
+          marketingConsentContent: input.agreed ? MARKETING_CONSENT_TEXT : null,
+          kakaoMarketingConsent: input.agreed,
+          kakaoMarketingConsentAt: input.agreed ? now : null,
+          kakaoMarketingConsentContent: input.agreed ? KAKAO_MARKETING_CONSENT_TEXT : null,
         });
 
         // 동의 이력 저장
@@ -619,13 +637,21 @@ export const appRouter = router({
           ipAddress: undefined,
           userAgent: input.userAgent,
         });
+        await createConsentLog({
+          memberId: input.memberId,
+          consentType: input.agreed ? "kakao_marketing" : "kakao_marketing_withdraw",
+          agreed: input.agreed,
+          consentContent: KAKAO_MARKETING_CONSENT_TEXT,
+          ipAddress: undefined,
+          userAgent: input.userAgent,
+        });
 
         let couponsIssued = 0;
 
-        // 동의 시: 10% 할인 쿠폰 + 생일 쿠폰 자동 발급 (미발급자만)
+        // 세 채널을 모두 동의한 경우에만 가입 혜택 쿠폰 자동 발급 (미발급자만)
         if (input.agreed) {
           const existingCoupons = await getCouponsByMemberId(input.memberId);
-          const hasDiscount = existingCoupons.some((c) => c.type === "discount_percent");
+          const hasDiscount = existingCoupons.some((c) => c.grantKey === SIGNUP_DISCOUNT_GRANT_KEY);
           const hasBirthday = existingCoupons.some(
             (c) => c.type === "birthday" && c.birthdayYear === now.getFullYear()
           );

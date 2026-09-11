@@ -160,6 +160,19 @@ describe("membership.register", () => {
     expect(discountIssue?.grantKey).toBe("signup_discount_v1");
   });
 
+  it("이메일·SMS/LMS와 카카오톡 동의가 불일치하면 가입을 차단한다", async () => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(caller.membership.register({
+      name: "부분동의",
+      email: "partial@example.com",
+      phone: "010-1111-2222",
+      birthDate: "1995-06-15",
+      privacyConsent: true,
+      marketingConsent: true,
+      kakaoMarketingConsent: false,
+    })).rejects.toThrow("마케팅 정보 수신 동의는 이메일·SMS/LMS·카카오톡 NOPS 채널에 함께 적용됩니다.");
+  });
+
   it("중복 이메일 가입 시 CONFLICT 오류", async () => {
     const db = await import("./db");
     (db.getMemberByEmail as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
