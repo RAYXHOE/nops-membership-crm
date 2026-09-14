@@ -28,6 +28,40 @@ function requireTemplateId(templateId: string, label: string): string {
   return templateId;
 }
 
+type SolapiErrorRecord = {
+  name?: unknown;
+  message?: unknown;
+  statusCode?: unknown;
+  statusMessage?: unknown;
+  totalCount?: unknown;
+  failedMessageList?: unknown;
+};
+
+/** SOLAPI 진단 필드만 기록한다. 수신·발신 번호 등 요청 데이터는 저장하지 않는다. */
+export function serializeSolapiError(error: unknown): string {
+  const record = (error && typeof error === "object" ? error : {}) as SolapiErrorRecord;
+  const failedMessageList = Array.isArray(record.failedMessageList)
+    ? record.failedMessageList.slice(0, 10).map((item) => {
+        const message = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
+        return {
+          type: message.type ?? null,
+          statusCode: message.statusCode ?? null,
+          statusMessage: message.statusMessage ?? null,
+        };
+      })
+    : [];
+
+  return JSON.stringify({
+    name: typeof record.name === "string" ? record.name : "Error",
+    message: typeof record.message === "string" ? record.message : String(error),
+    statusCode: record.statusCode ?? null,
+    statusMessage: record.statusMessage ?? null,
+    totalCount: record.totalCount ?? null,
+    failedMessageCount: failedMessageList.length,
+    failedMessageList,
+  }).slice(0, 4000);
+}
+
 // 전화번호 정규화 (하이픈 제거, 국제번호 형식 변환)
 function normalizePhone(phone: string): string {
   let p = phone.replace(/-/g, "").replace(/\s/g, "");
@@ -50,6 +84,7 @@ export async function sendWelcomeAlimtalk(opts: {
 }) {
   try {
     const client = getSolapiClient();
+    const templateId = requireTemplateId(TEMPLATE_WELCOME, "WELCOME");
     const couponList = opts.coupons
       .map((c) => `• ${c.name}: ${c.code}`)
       .join("\n");
@@ -59,7 +94,7 @@ export async function sendWelcomeAlimtalk(opts: {
       from: normalizePhone(SENDER),
       kakaoOptions: {
         pfId: PFID,
-        templateId: TEMPLATE_WELCOME,
+        templateId,
         variables: {
           "#{이름}": opts.name,
         },
@@ -67,12 +102,13 @@ export async function sendWelcomeAlimtalk(opts: {
     } as Parameters<typeof client.send>[0]);
 
     console.log(`[Kakao] Welcome alimtalk sent to ${opts.to}`);
-    await createAlimtalkLog({ type: "welcome", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_WELCOME, status: "success" });
+    await createAlimtalkLog({ type: "welcome", recipientPhone: opts.to, recipientName: opts.name, templateId, status: "success" });
     return { success: true };
   } catch (err) {
     console.error(`[Kakao] Failed to send welcome alimtalk to ${opts.to}:`, err);
-    await createAlimtalkLog({ type: "welcome", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_WELCOME, status: "failed", errorMessage: String(err) });
-    return { success: false, error: String(err) };
+    const errorMessage = serializeSolapiError(err);
+    await createAlimtalkLog({ type: "welcome", recipientPhone: opts.to, recipientName: opts.name, templateId: TEMPLATE_WELCOME, status: "failed", errorMessage });
+    return { success: false, error: errorMessage };
   }
 }
 

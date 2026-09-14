@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { createAlimtalkLog } from "./db";
 
 // 솔라피 SDK mock
 vi.mock("solapi", () => {
@@ -92,5 +93,41 @@ describe("kakao alimtalk service", () => {
       coupons: [],
     });
     expect(result.success).toBe(false);
+  });
+
+  it("환영 알림톡 접수 실패 시 상세 사유는 저장하되 전화번호는 오류 로그에 남기지 않음", async () => {
+    const solapi = await import("solapi");
+    const mockSend = (solapi as unknown as { _mockSend: ReturnType<typeof vi.fn> })._mockSend;
+    mockSend.mockRejectedValueOnce({
+      name: "MessageNotReceivedError",
+      message: "1개의 메시지가 접수되지 못했습니다.",
+      totalCount: 1,
+      failedMessageList: [
+        {
+          to: "01012345678",
+          from: "0215974030",
+          type: "ATA",
+          statusCode: "TemplateNotFound",
+          statusMessage: "템플릿을 찾을 수 없습니다.",
+        },
+      ],
+    });
+
+    const { sendWelcomeAlimtalk } = await import("./kakao");
+    const result = await sendWelcomeAlimtalk({ to: "010-1234-5678", name: "테스트", coupons: [] });
+
+    expect(result.success).toBe(false);
+    const call = vi.mocked(createAlimtalkLog).mock.calls.at(-1)?.[0];
+    const errorDetail = JSON.parse(call?.errorMessage ?? "{}");
+    expect(errorDetail).toMatchObject({
+      name: "MessageNotReceivedError",
+      totalCount: 1,
+      failedMessageCount: 1,
+      failedMessageList: [
+        { type: "ATA", statusCode: "TemplateNotFound", statusMessage: "템플릿을 찾을 수 없습니다." },
+      ],
+    });
+    expect(call?.errorMessage).not.toContain("01012345678");
+    expect(call?.errorMessage).not.toContain("0215974030");
   });
 });

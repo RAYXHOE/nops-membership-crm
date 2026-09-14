@@ -7,6 +7,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { sdk } from "./sdk";
+import { canUseAdminAlimtalkTest } from "../adminAlimtalkAuth";
 import { serveStatic, setupVite } from "./vite";
 import { birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler, corkageReissueHandler, cleanupExpiredOtpsHandler, expirePointsHandler, checkMissingCouponsHandler, checkPointsMissingHandler, pointsExpiryReminderHandler } from "../scheduledHandlers";
 import { dbBackupHandler } from "../backupHandler";
@@ -53,6 +55,10 @@ async function startServer() {
   // 테스트 알림톡 발송 (관리자 전용)
   app.post("/api/admin/test-alimtalk", async (req, res) => {
     try {
+      const user = await sdk.authenticateRequest(req).catch(() => null);
+      if (!canUseAdminAlimtalkTest(user)) {
+        return res.status(403).json({ error: "관리자 권한이 필요합니다." });
+      }
       const { memberName } = req.body as { memberName?: string };
       if (!memberName) return res.status(400).json({ error: "memberName 필요" });
       const { getDb } = await import("../db");
