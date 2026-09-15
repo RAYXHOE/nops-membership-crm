@@ -15,7 +15,8 @@ export function normalizeRecipientName(value) {
 
 export function renderSeptemberComboMmsText(value) {
   const name = normalizeRecipientName(value);
-  const text = `${name}님, 9월 콤보 전 메뉴 10% 할인 쿠폰이 발급되었습니다.
+  const text = `[멤버쉽 특전] 스테이크하우스 NOPS
+${name}님, 9월 콤보 전 메뉴 10% 할인 쿠폰이 발급되었습니다.
 
 쿠폰 확인: https://membership.nops.kr/mypage
 
