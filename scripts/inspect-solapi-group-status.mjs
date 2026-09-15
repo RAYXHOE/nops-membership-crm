@@ -23,13 +23,21 @@ async function withRetry(operation, attempts = 3) {
 }
 
 const group = await withRetry(() => client.getGroup(groupId));
-const outcomeSummary = groupOnly
-  ? null
-  : Object.values((await withRetry(() => client.getGroupMessages(groupId, { limit: 1000 }))).messageList).reduce((summary, message) => {
-      const key = `${message.statusCode ?? "unknown"}|${message.statusMessage ?? ""}`;
-      summary[key] = (summary[key] ?? 0) + 1;
-      return summary;
-    }, {});
+let outcomeSummary = null;
+if (!groupOnly) {
+  const messages = [];
+  let startKey;
+  do {
+    const response = await withRetry(() => client.getMessages({ groupId, limit: 500, startKey }));
+    messages.push(...Object.values(response.messageList));
+    startKey = response.nextKey ?? undefined;
+  } while (startKey);
+  outcomeSummary = messages.reduce((summary, message) => {
+    const key = `${message.statusCode ?? "unknown"}|${message.statusMessage ?? ""}`;
+    summary[key] = (summary[key] ?? 0) + 1;
+    return summary;
+  }, {});
+}
 
 console.log(JSON.stringify({
   checkedAt: new Date().toISOString(),
