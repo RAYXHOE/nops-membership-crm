@@ -1094,7 +1094,21 @@ import type { InsertInquiry } from "../drizzle/schema";
 export async function createInquiry(data: InsertInquiry) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.insert(inquiries).values(data);
+  const result = await db.insert(inquiries).values(data);
+  return { id: Number(result[0].insertId), createdAt: new Date() };
+}
+
+export async function updateInquiryNotification(
+  id: number,
+  update: { status: "sent" | "failed"; sentAt?: Date | null; error?: string | null },
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(inquiries).set({
+    notificationStatus: update.status,
+    notificationSentAt: update.sentAt ?? null,
+    notificationError: update.error ?? null,
+  }).where(eq(inquiries.id, id));
 }
 
 export async function listInquiries(opts?: {

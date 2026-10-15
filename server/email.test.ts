@@ -49,6 +49,21 @@ describe("email service", () => {
     expect(typeof result.success).toBe("boolean");
   });
 
+  it("sendNewInquiryAlertEmail - 운영자 알림 발송 성공", async () => {
+    const { sendNewInquiryAlertEmail } = await import("./email");
+    const result = await sendNewInquiryAlertEmail({
+      inquiryId: 42,
+      name: "홍길동 <script>",
+      email: "customer@example.com",
+      phone: "010-0000-0000",
+      category: "membership",
+      subject: "쿠폰 문의",
+      content: "문의 내용입니다.",
+      createdAt: new Date("2026-10-15T15:00:00.000Z"),
+    });
+    expect(result).toEqual({ success: true });
+  });
+
   it("sendBirthdayEmail - 생일 쿠폰 이메일 발송 성공", async () => {
     const { sendBirthdayEmail } = await import("./email");
     const result = await sendBirthdayEmail({

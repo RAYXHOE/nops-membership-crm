@@ -44,6 +44,7 @@ import {
   deleteBranch,
   listAlimtalkLogs,
   createInquiry,
+  updateInquiryNotification,
   listInquiries,
   replyInquiry,
   earnPoints,
@@ -53,7 +54,7 @@ import {
   calcEarnPoints,
   SIGNUP_DISCOUNT_GRANT_KEY,
 } from "./db";
-import { sendWelcomeEmail, sendOtpEmail } from "./email";
+import { sendWelcomeEmail, sendOtpEmail, sendNewInquiryAlertEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
 import { createOtp, verifyOtp as verifyOtpDb } from "./db";
 import { memberRegistrationSchema } from "@shared/memberRegistration";
@@ -774,8 +775,23 @@ export const appRouter = router({
         content: z.string().min(1),
       }))
       .mutation(async ({ input }) => {
-        await createInquiry(input);
-        return { success: true };
+        const inquiry = await createInquiry({ ...input, notificationStatus: "pending" });
+        const alert = await sendNewInquiryAlertEmail({
+          inquiryId: inquiry.id,
+          name: input.name,
+          email: input.email,
+          phone: input.phone,
+          category: input.category,
+          subject: input.subject,
+          content: input.content,
+          createdAt: inquiry.createdAt,
+        });
+        await updateInquiryNotification(inquiry.id, {
+          status: alert.success ? "sent" : "failed",
+          sentAt: alert.success ? new Date() : null,
+          error: alert.success ? null : (alert.error ?? "운영자 알림 이메일 발송 실패"),
+        });
+        return { success: true, notificationSent: alert.success };
       }),
 
     // 회원 탈퇴

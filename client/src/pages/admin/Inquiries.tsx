@@ -118,6 +118,9 @@ export default function AdminInquiries() {
                         <span className="text-xs text-muted-foreground">
                           {new Date(item.createdAt).toLocaleString("ko-KR")}
                         </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${item.notificationStatus === "sent" ? "bg-blue-100 text-blue-700" : item.notificationStatus === "failed" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                          운영자 메일 {item.notificationStatus === "sent" ? "발송" : item.notificationStatus === "failed" ? "실패" : "대기"}
+                        </span>
                       </div>
                       <p className="text-sm font-semibold text-foreground truncate">{item.subject}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">{item.name} · {item.email}</p>

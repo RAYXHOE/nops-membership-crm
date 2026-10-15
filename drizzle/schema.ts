@@ -236,6 +236,9 @@ export const inquiries = mysqlTable("inquiries", {
   status: mysqlEnum("status", ["pending", "answered", "closed"]).notNull().default("pending"),
   adminReply: text("adminReply"),
   repliedAt: timestamp("repliedAt"),
+  notificationStatus: mysqlEnum("notificationStatus", ["pending", "sent", "failed"]).notNull().default("pending"),
+  notificationSentAt: timestamp("notificationSentAt"),
+  notificationError: text("notificationError"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

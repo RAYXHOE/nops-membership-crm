@@ -5,6 +5,16 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // 발신자 이메일 — 커스텀 도메인 인증 전까지 Resend 기본 도메인 사용
 // 실제 운영 시 noreply@nops-steakhouse.com 등으로 변경
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "NOPS Steak House <onboarding@resend.dev>";
+const OWNER_EMAIL = process.env.OWNER_EMAIL || "spvltm@gmail.com";
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 // ─── HTML 이메일 템플릿 ────────────────────────────────────────────────────────
 function buildWelcomeEmailHtml(opts: {
@@ -449,6 +459,61 @@ export async function sendInquiryReplyEmail(opts: {
   } catch (err) {
     console.error(`[Email] Failed to send inquiry reply to ${opts.to}:`, err);
     return { success: false };
+  }
+}
+
+// ─── 신규 고객 문의 운영자 알림 이메일 ─────────────────────────────────────────
+export async function sendNewInquiryAlertEmail(opts: {
+  inquiryId: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  category: string;
+  subject: string;
+  content: string;
+  createdAt?: Date;
+}) {
+  try {
+    const createdAt = opts.createdAt ?? new Date();
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: OWNER_EMAIL,
+      replyTo: opts.email,
+      subject: `[NOPS CRM] 새 고객 문의 #${opts.inquiryId} — ${opts.subject}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background:#1a1a1a; padding:24px 32px; border-radius:12px 12px 0 0;">
+            <p style="color:#c9a84c; font-size:11px; letter-spacing:.2em; margin:0 0 6px;">NOPS CRM ALERT</p>
+            <h1 style="color:#fff; font-size:20px; margin:0;">새 고객 문의가 접수되었습니다</h1>
+          </div>
+          <div style="background:#fff; border:1px solid #e5e5e5; border-top:none; padding:24px 32px; border-radius:0 0 12px 12px;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <tr><td style="padding:7px 0;color:#888;width:110px;">문의 번호</td><td style="padding:7px 0;font-weight:700;">#${opts.inquiryId}</td></tr>
+              <tr><td style="padding:7px 0;color:#888;">문의 유형</td><td style="padding:7px 0;">${escapeHtml(opts.category)}</td></tr>
+              <tr><td style="padding:7px 0;color:#888;">작성자</td><td style="padding:7px 0;">${escapeHtml(opts.name)}</td></tr>
+              <tr><td style="padding:7px 0;color:#888;">이메일</td><td style="padding:7px 0;">${escapeHtml(opts.email)}</td></tr>
+              <tr><td style="padding:7px 0;color:#888;">연락처</td><td style="padding:7px 0;">${escapeHtml(opts.phone || "미입력")}</td></tr>
+              <tr><td style="padding:7px 0;color:#888;">접수 시각</td><td style="padding:7px 0;">${escapeHtml(createdAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }))}</td></tr>
+            </table>
+            <div style="margin-top:18px; padding:14px 16px; background:#f7f3ee; border:1px solid #e8dfd0; border-radius:8px;">
+              <p style="font-size:12px;color:#8b6914;font-weight:700;margin:0 0 6px;">${escapeHtml(opts.subject)}</p>
+              <p style="font-size:14px;color:#333;line-height:1.7;white-space:pre-wrap;margin:0;">${escapeHtml(opts.content)}</p>
+            </div>
+            <p style="color:#999;font-size:11px;margin:20px 0 0;">CRM 관리자 → 고객 문의에서 답변을 작성해 주세요.</p>
+          </div>
+        </div>
+      `,
+    });
+    if (result.error) {
+      console.error(`[Email] New inquiry alert rejected for #${opts.inquiryId}:`, result.error);
+      return { success: false, error: result.error.message ?? "Resend rejected email" };
+    }
+    console.log(`[Email] New inquiry alert sent for #${opts.inquiryId} to ${OWNER_EMAIL}`);
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Email] Failed to send new inquiry alert for #${opts.inquiryId}:`, message);
+    return { success: false, error: message };
   }
 }
 
