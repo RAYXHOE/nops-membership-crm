@@ -6,6 +6,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // 실제 운영 시 noreply@nops-steakhouse.com 등으로 변경
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "NOPS Steak House <onboarding@resend.dev>";
 const OWNER_EMAIL = process.env.OWNER_EMAIL || "spvltm@gmail.com";
+const INQUIRY_ALERT_RECIPIENTS = OWNER_EMAIL.split(",").map((address) => address.trim()).filter(Boolean);
+
+export function getInquiryAlertRecipients(): string[] {
+  return [...INQUIRY_ALERT_RECIPIENTS];
+}
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -477,7 +482,7 @@ export async function sendNewInquiryAlertEmail(opts: {
     const createdAt = opts.createdAt ?? new Date();
     const result = await resend.emails.send({
       from: FROM_EMAIL,
-      to: OWNER_EMAIL,
+      to: INQUIRY_ALERT_RECIPIENTS,
       replyTo: opts.email,
       subject: `[NOPS CRM] 새 고객 문의 #${opts.inquiryId} — ${opts.subject}`,
       html: `
@@ -508,7 +513,7 @@ export async function sendNewInquiryAlertEmail(opts: {
       console.error(`[Email] New inquiry alert rejected for #${opts.inquiryId}:`, result.error);
       return { success: false, error: result.error.message ?? "Resend rejected email" };
     }
-    console.log(`[Email] New inquiry alert sent for #${opts.inquiryId} to ${OWNER_EMAIL}`);
+    console.log(`[Email] New inquiry alert sent for #${opts.inquiryId} to ${INQUIRY_ALERT_RECIPIENTS.join(", ")}`);
     return { success: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

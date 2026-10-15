@@ -50,7 +50,9 @@ describe("email service", () => {
   });
 
   it("sendNewInquiryAlertEmail - 운영자 알림 발송 성공", async () => {
-    const { sendNewInquiryAlertEmail } = await import("./email");
+    process.env.OWNER_EMAIL = "victorxhoe@kintlab.co.kr,contact@nops.kr";
+    const { getInquiryAlertRecipients, sendNewInquiryAlertEmail } = await import("./email");
+    expect(getInquiryAlertRecipients()).toEqual(["victorxhoe@kintlab.co.kr", "contact@nops.kr"]);
     const result = await sendNewInquiryAlertEmail({
       inquiryId: 42,
       name: "홍길동 <script>",
