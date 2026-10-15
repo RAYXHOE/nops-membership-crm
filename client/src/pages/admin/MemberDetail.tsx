@@ -41,6 +41,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+function toDateInputValue(value: Date | string): string {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
 export default function AdminMemberDetail() {
   const params = useParams<{ id: string }>();
   const memberId = Number(params.id);
@@ -166,12 +170,16 @@ export default function AdminMemberDetail() {
   // Update visitedBranch
   const [branchEdit, setBranchEdit] = useState(false);
   const [editedBranch, setEditedBranch] = useState("");
+  const [basicInfoEdit, setBasicInfoEdit] = useState(false);
+  const [editedPhone, setEditedPhone] = useState("");
+  const [editedBirthDate, setEditedBirthDate] = useState("");
   const branchesQuery = trpc.admin.listBranchCodes.useQuery();
   const updateMemberMutation = trpc.admin.updateMember.useMutation({
     onSuccess: () => {
       utils.admin.getMember.invalidate({ id: memberId });
       setNotesEdit(false);
       setBranchEdit(false);
+      setBasicInfoEdit(false);
       toast.success("저장되었습니다.");
     },
     onError: (e) => toast.error(e.message),
@@ -227,7 +235,6 @@ export default function AdminMemberDetail() {
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{member.email}</p>
-                <p className="text-sm text-muted-foreground">{member.phone}</p>
               </div>
             </div>
             <div className="text-right text-sm space-y-2">
@@ -252,6 +259,50 @@ export default function AdminMemberDetail() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Contact and birth date */}
+          <div className="mt-4 pt-4 border-t border-border/50">
+            {!basicInfoEdit ? (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">연락처·생년월일</span>
+                <span className="text-xs text-foreground">{member.phone} · {new Date(member.birthDate).toLocaleDateString("ko-KR")}</span>
+                <button
+                  onClick={() => {
+                    setEditedPhone(member.phone);
+                    setEditedBirthDate(toDateInputValue(member.birthDate));
+                    setBasicInfoEdit(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-border hover:bg-muted transition-colors"
+                  title="연락처 및 생년월일 수정"
+                >
+                  <Edit3 className="w-3 h-3 text-muted-foreground" />
+                  수정
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-end gap-3 flex-wrap">
+                <div>
+                  <Label className="text-xs text-muted-foreground">연락처</Label>
+                  <Input className="h-8 w-44 text-xs mt-1" type="tel" value={editedPhone} onChange={(e) => setEditedPhone(e.target.value)} placeholder="010-0000-0000" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">생년월일</Label>
+                  <Input className="h-8 w-36 text-xs mt-1" type="date" value={editedBirthDate} onChange={(e) => setEditedBirthDate(e.target.value)} />
+                </div>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs px-3"
+                  disabled={updateMemberMutation.isPending || !editedPhone || !editedBirthDate}
+                  onClick={() => updateMemberMutation.mutate({ id: memberId, phone: editedPhone, birthDate: editedBirthDate })}
+                >
+                  저장
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 text-xs px-2" onClick={() => setBasicInfoEdit(false)}>
+                  취소
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Visited branch */}

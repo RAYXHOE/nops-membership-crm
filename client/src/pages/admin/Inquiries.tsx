@@ -38,9 +38,10 @@ export default function AdminInquiries() {
   });
 
   const replyMutation = trpc.admin.replyInquiry.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       utils.admin.listInquiries.invalidate();
-      toast.success("답변이 저장되었습니다.");
+      if (data.emailSent) toast.success("답변 저장 및 이메일 발송 접수가 완료되었습니다.");
+      else toast.warning("답변은 저장되었지만 이메일 발송 접수에 실패했습니다.");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -156,6 +157,11 @@ export default function AdminInquiries() {
                             className="resize-none text-sm"
                           />
                           <div className="flex gap-2 justify-end">
+                            <Button size="sm" variant="outline"
+                              onClick={() => replyMutation.mutate({ id: item.id, adminReply: replyText[item.id] ?? "", status: "pending" })}
+                              disabled={!replyText[item.id] || replyMutation.isPending}>
+                              추가 확인 안내 (대기 유지)
+                            </Button>
                             <Button size="sm" variant="outline"
                               onClick={() => replyMutation.mutate({ id: item.id, adminReply: replyText[item.id] ?? "", status: "closed" })}
                               disabled={!replyText[item.id] || replyMutation.isPending}>

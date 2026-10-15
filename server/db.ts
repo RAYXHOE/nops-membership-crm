@@ -1131,7 +1131,7 @@ export async function listInquiries(opts?: {
   return { items, total: Number(countResult[0]?.count ?? 0) };
 }
 
-export async function replyInquiry(id: number, adminReply: string, status: "answered" | "closed" = "answered") {
+export async function replyInquiry(id: number, adminReply: string, status: "pending" | "answered" | "closed" = "answered") {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.update(inquiries).set({ adminReply, status, repliedAt: new Date() }).where(eq(inquiries.id, id));

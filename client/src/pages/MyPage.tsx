@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { CouponData as Coupon } from "@shared/types";
+import { formatKoreanMobilePhone } from "@shared/memberRegistration";
 
 function QRCodeImage({ value, size = 200 }: { value: string; size?: number }) {
   const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=ffffff&color=1a1a1a&margin=10`;
@@ -122,10 +123,10 @@ function EmailStep({ onNext }: { onNext: (email: string) => void }) {
   );
 }
 
-function OtpStep({ email, onSuccess, onBack }: { email: string; onSuccess: (memberId: number) => void; onBack: () => void }) {
+function OtpStep({ email, onSuccess, onBack }: { email: string; onSuccess: (memberId: number, profileToken: string) => void; onBack: () => void }) {
   const [code, setCode] = useState("");
   const verifyMutation = trpc.membership.verifyOtp.useMutation({
-    onSuccess: (data) => { toast.success("인증되었습니다."); onSuccess(data.memberId); },
+    onSuccess: (data) => { toast.success("인증되었습니다."); onSuccess(data.memberId, data.profileToken); },
     onError: (err) => toast.error(err.message),
   });
   const resendMutation = trpc.membership.sendOtp.useMutation({
@@ -154,7 +155,47 @@ function OtpStep({ email, onSuccess, onBack }: { email: string; onSuccess: (memb
   );
 }
 
-function CouponView({ memberId }: { memberId: number }) {
+function ProfileEditor({ memberId, phone, birthDate, profileToken, onUpdated, onReauthenticate }: {
+  memberId: number; phone: string; birthDate: Date | string; profileToken: string | null;
+  onUpdated: () => void; onReauthenticate: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [newPhone, setNewPhone] = useState(phone);
+  const [newBirthDate, setNewBirthDate] = useState(new Date(birthDate).toISOString().slice(0, 10));
+  const mutation = trpc.membership.updateProfile.useMutation({
+    onSuccess: () => { setEditing(false); onUpdated(); toast.success("연락처·생년월일이 저장되었습니다."); },
+    onError: (error) => toast.error(error.message),
+  });
+  return (
+    <div className="py-4 border-t border-border/30">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <p className="text-sm font-semibold">회원정보</p>
+        {!editing && <Button size="sm" variant="outline" onClick={() => {
+          if (!profileToken) { onReauthenticate(); return; }
+          setNewPhone(phone); setNewBirthDate(new Date(birthDate).toISOString().slice(0, 10)); setEditing(true);
+        }}><Pencil className="w-3.5 h-3.5 mr-1.5" />연락처·생년월일 수정</Button>}
+      </div>
+      {!profileToken ? (
+        <p className="text-xs text-muted-foreground">등록 이메일로 본인인증 후 연락처·생년월일을 확인하고 수정할 수 있습니다.</p>
+      ) : !editing ? (
+        <div className="space-y-1 text-sm"><p>연락처: {phone}</p><p>생년월일: {new Date(birthDate).toISOString().slice(0, 10)}</p></div>
+      ) : (
+        <form className="space-y-3" onSubmit={(event) => {
+          event.preventDefault();
+          if (profileToken) mutation.mutate({ memberId, profileToken, phone: newPhone, birthDate: newBirthDate });
+        }}>
+          <div><Label htmlFor="profile-phone">연락처</Label><Input id="profile-phone" type="tel" inputMode="numeric" value={newPhone} onChange={(event) => setNewPhone(formatKoreanMobilePhone(event.target.value))} required /></div>
+          <div><Label htmlFor="profile-birth-date">생년월일</Label><Input id="profile-birth-date" type="date" value={newBirthDate} onChange={(event) => setNewBirthDate(event.target.value)} required /></div>
+          <p className="text-xs text-muted-foreground">회원정보만 수정하며 기존 쿠폰·적립금·수신동의는 변경되지 않습니다. 인증이 만료되면 다시 인증해 주세요.</p>
+          {mutation.error?.data?.code === "UNAUTHORIZED" && <Button type="button" variant="outline" size="sm" onClick={onReauthenticate}>이메일 다시 인증</Button>}
+          <div className="flex justify-end gap-2"><Button type="button" size="sm" variant="ghost" disabled={mutation.isPending} onClick={() => setEditing(false)}>취소</Button><Button type="submit" size="sm" disabled={mutation.isPending}>{mutation.isPending ? "저장 중..." : "변경 저장"}</Button></div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function CouponView({ memberId, profileToken, onReauthenticate }: { memberId: number; profileToken: string | null; onReauthenticate: () => void }) {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [showInquiry, setShowInquiry] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
@@ -265,6 +306,7 @@ function CouponView({ memberId }: { memberId: number }) {
               </div>
             </div>
           )}
+          {member.status === "active" && <ProfileEditor memberId={memberId} phone={member.phone} birthDate={member.birthDate} profileToken={profileToken} onUpdated={() => memberInfoQuery.refetch()} onReauthenticate={onReauthenticate} />}
           <AnniversarySection memberId={memberId} current={(member as typeof member & { anniversaryDate?: string | null }).anniversaryDate ?? null} onUpdated={() => memberInfoQuery.refetch()} />
         </div>
       )}
@@ -431,6 +473,7 @@ export default function MyPage() {
   const [step, setStep] = useState<Step>(urlMemberId ? "coupons" : "email");
   const [email, setEmail] = useState("");
   const [memberId, setMemberId] = useState<number | null>(urlMemberId);
+  const [profileToken, setProfileToken] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-background">
@@ -453,8 +496,8 @@ export default function MyPage() {
           <h1 className="text-3xl font-bold text-foreground">내 쿠폰</h1>
         </div>
         {step === "email" && <EmailStep onNext={(e) => { setEmail(e); setStep("otp"); }} />}
-        {step === "otp" && <OtpStep email={email} onSuccess={(id) => { setMemberId(id); setStep("coupons"); }} onBack={() => setStep("email")} />}
-        {step === "coupons" && memberId && <CouponView memberId={memberId} />}
+        {step === "otp" && <OtpStep email={email} onSuccess={(id, token) => { setMemberId(id); setProfileToken(token); setStep("coupons"); }} onBack={() => setStep("email")} />}
+        {step === "coupons" && memberId && <CouponView memberId={memberId} profileToken={profileToken} onReauthenticate={() => { setProfileToken(null); setStep("email"); toast.info("회원정보 수정 전 가입 이메일로 본인인증해 주세요."); }} />}
       </div>
     </div>
   );

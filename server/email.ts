@@ -4,7 +4,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 // 발신자 이메일 — 커스텀 도메인 인증 전까지 Resend 기본 도메인 사용
 // 실제 운영 시 noreply@nops-steakhouse.com 등으로 변경
-const FROM_EMAIL = process.env.EMAIL_FROM ?? "NOPS Steak House <onboarding@resend.dev>";
+const FROM_EMAIL = (process.env.EMAIL_FROM ?? "NOPS Steak House <onboarding@resend.dev>")
+  .replace(/\\u003c/gi, "<").replace(/\\u003e/gi, ">");
 const OWNER_EMAIL = process.env.OWNER_EMAIL || "spvltm@gmail.com";
 const INQUIRY_ALERT_RECIPIENTS = OWNER_EMAIL.split(",").map((address) => address.trim()).filter(Boolean);
 
@@ -424,9 +425,10 @@ export async function sendInquiryReplyEmail(opts: {
   subject: string;
   originalContent: string;
   adminReply: string;
+  idempotencyKey?: string;
 }) {
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: opts.to,
       subject: `[NOPS Steak House] 문의 답변: ${opts.subject}`,
@@ -438,15 +440,15 @@ export async function sendInquiryReplyEmail(opts: {
           </div>
           <div style="background: #ffffff; padding: 32px; border-radius: 0 0 12px 12px; border: 1px solid #e5e5e5; border-top: none;">
             <p style="color: #c9a84c; font-size: 12px; letter-spacing: 0.15em; margin: 0 0 8px;">INQUIRY REPLY</p>
-            <h2 style="font-size: 18px; margin: 0 0 8px;">${opts.name}님, 문의 답변이 도착했습니다</h2>
+            <h2 style="font-size: 18px; margin: 0 0 8px;">${escapeHtml(opts.name)}님, 문의 답변이 도착했습니다</h2>
             <p style="color: #666; font-size: 14px; margin: 0 0 24px;">문의하신 내용에 대한 답변을 안내드립니다.</p>
             <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
               <p style="font-size: 11px; color: #999; margin: 0 0 6px;">문의 내용</p>
-              <p style="font-size: 13px; color: #555; margin: 0; line-height: 1.6; white-space: pre-wrap;">${opts.originalContent}</p>
+              <p style="font-size: 13px; color: #555; margin: 0; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(opts.originalContent)}</p>
             </div>
             <div style="background: #fff8f0; border: 1px solid #f0d9b5; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
               <p style="font-size: 11px; color: #c9a84c; margin: 0 0 6px; font-weight: bold;">관리자 답변</p>
-              <p style="font-size: 14px; color: #333; margin: 0; line-height: 1.7; white-space: pre-wrap;">${opts.adminReply}</p>
+              <p style="font-size: 14px; color: #333; margin: 0; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(opts.adminReply)}</p>
             </div>
             <a href="https://membership.nops.kr/mypage" style="display: block; background: #1a1a1a; color: #ffffff; text-align: center; padding: 14px; border-radius: 8px; text-decoration: none; font-size: 14px;">
               마이페이지 바로가기 →
@@ -458,12 +460,16 @@ export async function sendInquiryReplyEmail(opts: {
           </div>
         </div>
       `,
-    });
-    console.log(`[Email] Inquiry reply sent to ${opts.to}`);
-    return { success: true };
+    }, opts.idempotencyKey ? { idempotencyKey: opts.idempotencyKey } : undefined);
+    if (result.error || !result.data?.id) {
+      console.error("[Email] Inquiry reply API rejected");
+      return { success: false, error: result.error?.name ?? "missing_email_id" };
+    }
+    console.log("[Email] Inquiry reply accepted");
+    return { success: true, emailId: result.data.id };
   } catch (err) {
-    console.error(`[Email] Failed to send inquiry reply to ${opts.to}:`, err);
-    return { success: false };
+    console.error("[Email] Inquiry reply request failed");
+    return { success: false, error: "request_failed" };
   }
 }
 

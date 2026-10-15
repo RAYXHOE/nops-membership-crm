@@ -59,9 +59,12 @@ describe("getMembersForCorkageReissue", () => {
     expect(targets).toEqual([{ id: 1, status: "active", name: "발급 대상" }]);
     const usedCouponWindowStart = gteMock.mock.calls[0][1] as Date;
     const usedCouponWindowEnd = lteMock.mock.calls[0][1] as Date;
-    const elapsedDays = Math.round((Date.now() - usedCouponWindowStart.getTime()) / (24 * 60 * 60 * 1000));
+    // Compare calendar boundaries; afternoon rounded elapsed time can become 31.
+    const expectedStart = new Date();
+    expectedStart.setDate(expectedStart.getDate() - 30);
+    expectedStart.setHours(0, 0, 0, 0);
 
-    expect(elapsedDays).toBe(30);
+    expect(usedCouponWindowStart.getTime()).toBe(expectedStart.getTime());
     expect(usedCouponWindowStart.getHours()).toBe(0);
     expect(usedCouponWindowEnd.getTime() - usedCouponWindowStart.getTime()).toBe(86_399_999);
   });

@@ -57,9 +57,10 @@ import {
 import { sendWelcomeEmail, sendOtpEmail, sendNewInquiryAlertEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
 import { createOtp, verifyOtp as verifyOtpDb } from "./db";
-import { memberRegistrationSchema } from "@shared/memberRegistration";
+import { memberRegistrationSchema, memberPhoneSchema, memberBirthDateSchema } from "@shared/memberRegistration";
 import { getCouponExpiryAt } from "@shared/couponPolicy";
 import { getSepCombo2026ExpiryAt, SEP_COMBO_2026 } from "@shared/septemberComboCampaign";
+import { createMemberProfileToken, verifyMemberProfileToken } from "./memberProfileAuth";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -573,7 +574,33 @@ export const appRouter = router({
         }
         const member = await getMemberByEmail(input.email);
         if (!member) throw new TRPCError({ code: "NOT_FOUND" });
-        return { success: true, memberId: member.id };
+        const profileToken = await createMemberProfileToken(member.id, member.email);
+        return { success: true, memberId: member.id, profileToken };
+      }),
+
+    // Editing requires server-verified email OTP, never just a URL memberId.
+    updateProfile: publicProcedure
+      .input(z.object({
+        memberId: z.number().int().positive(),
+        profileToken: z.string().min(1).max(4096),
+        phone: memberPhoneSchema.optional(),
+        birthDate: memberBirthDateSchema.optional(),
+      }).refine((input) => input.phone !== undefined || input.birthDate !== undefined, "수정할 항목을 입력해 주세요."))
+      .mutation(async ({ input }) => {
+        const member = await getMemberById(input.memberId);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
+        await verifyMemberProfileToken(input.profileToken, member.id, member.email);
+        if (member.status !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "활성 회원만 수정할 수 있습니다." });
+        if (input.phone !== undefined && input.phone.replace(/\D/g, "") !== member.phone.replace(/\D/g, "")) {
+          const duplicate = await getMemberByPhone(input.phone);
+          if (duplicate && duplicate.id !== member.id) throw new TRPCError({ code: "CONFLICT", message: "이미 등록된 연락처입니다. 고객 문의로 확인을 요청해 주세요." });
+        }
+        await updateMember(member.id, {
+          ...(input.phone !== undefined ? { phone: input.phone } : {}),
+          ...(input.birthDate !== undefined ? { birthDate: new Date(`${input.birthDate}T00:00:00.000Z`) } : {}),
+        });
+        // Does not issue/reissue coupons or alter existing consent/points.
+        return { success: true };
       }),
 
     // 결혼기념일 업데이트 (미등록 시만 1회 허용)
@@ -910,13 +937,26 @@ export const appRouter = router({
           status: z.enum(["active", "inactive", "withdrawn"]).optional(),
           marketingConsent: z.boolean().optional(),
           visitedBranch: z.string().max(100).nullable().optional(),
+          phone: memberPhoneSchema.optional(),
+          birthDate: memberBirthDateSchema.optional(),
         })
       )
       .mutation(async ({ input }) => {
-        const { id, marketingConsent, visitedBranch: vb, ...data } = input;
+        const { id, marketingConsent, visitedBranch: vb, phone, birthDate, ...data } = input;
+        const member = await getMemberById(id);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
+        if (phone !== undefined && phone.replace(/\D/g, "") !== member.phone.replace(/\D/g, "")) {
+          const duplicate = await getMemberByPhone(phone);
+          if (duplicate && duplicate.id !== id) throw new TRPCError({ code: "CONFLICT", message: "이미 등록된 연락처입니다." });
+        }
         // visitedBranch: null 입력 시 빈 문자열로 저장
         const visitedBranchVal = vb === null ? null : (vb ?? undefined);
-        const extraData = visitedBranchVal !== undefined ? { ...data, visitedBranch: visitedBranchVal } : data;
+        const extraData = {
+          ...data,
+          ...(visitedBranchVal !== undefined ? { visitedBranch: visitedBranchVal } : {}),
+          ...(phone !== undefined ? { phone } : {}),
+          ...(birthDate !== undefined ? { birthDate: new Date(`${birthDate}T00:00:00.000Z`) } : {}),
+        };
         // 마케팅 동의 변경 시 이력 기록
         if (marketingConsent !== undefined) {
           const existing = await getMemberById(id);
@@ -1898,7 +1938,7 @@ export const appRouter = router({
       .input(z.object({
         id: z.number(),
         adminReply: z.string().min(1),
-        status: z.enum(["answered", "closed"]).default("answered"),
+        status: z.enum(["pending", "answered", "closed"]).default("answered"),
       }))
       .mutation(async ({ input }) => {
         // 답변 저장 전 문의 정보 조회
@@ -1908,23 +1948,16 @@ export const appRouter = router({
         const dbInst = await getDbFn();
         const inquiryRows = dbInst ? await dbInst.select().from(inquiries).where(eqFn(inquiries.id, input.id)).limit(1) : [];
         const inquiry = inquiryRows[0];
+        if (!inquiry) throw new TRPCError({ code: "NOT_FOUND", message: "문의를 찾을 수 없습니다." });
 
         await replyInquiry(input.id, input.adminReply, input.status);
 
-        // 답변 이메일 자동 발송 (비동기, 실패 시 무시)
-        if (inquiry) {
-          import("./email").then(({ sendInquiryReplyEmail }) => {
-            sendInquiryReplyEmail({
-              to: inquiry.email,
-              name: inquiry.name,
-              subject: inquiry.subject,
-              originalContent: inquiry.content,
-              adminReply: input.adminReply,
-            }).catch((err) => console.error("[문의 답변 이메일] 발송 실패:", err));
-          }).catch(() => {});
-        }
-
-        return { success: true };
+        const { sendInquiryReplyEmail } = await import("./email");
+        const emailResult = await sendInquiryReplyEmail({
+          to: inquiry.email, name: inquiry.name, subject: inquiry.subject,
+          originalContent: inquiry.content, adminReply: input.adminReply,
+        });
+        return { success: true, emailSent: emailResult.success };
       }),
 
     // ─── 적립금 관리 ──────────────────────────────────────────────────
