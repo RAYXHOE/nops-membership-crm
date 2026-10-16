@@ -5,8 +5,10 @@ import { createMemberProfileToken, verifyMemberProfileToken } from "./memberProf
 const mocks = vi.hoisted(() => ({
   getMemberById: vi.fn(), getMemberByPhone: vi.fn(), updateMember: vi.fn(),
   getMemberByEmail: vi.fn(), verifyOtp: vi.fn(), issueCoupon: vi.fn(),
+  updateSelfMemberProfile: vi.fn(),
 }));
 vi.mock("./db", async (original) => ({ ...(await original<typeof import("./db")>()), ...mocks }));
+vi.mock("./memberProfileDb", () => ({ updateSelfMemberProfile: mocks.updateSelfMemberProfile }));
 vi.mock("./email", () => ({ sendWelcomeEmail: vi.fn(), sendOtpEmail: vi.fn(), sendNewInquiryAlertEmail: vi.fn() }));
 vi.mock("./kakao", () => ({ sendWelcomeAlimtalk: vi.fn() }));
 import { appRouter } from "./routers";
@@ -20,6 +22,7 @@ beforeEach(() => {
   vi.clearAllMocks(); vi.stubEnv("JWT_SECRET", "test-secret-for-profile-auth-not-production");
   mocks.getMemberById.mockResolvedValue(member); mocks.getMemberByPhone.mockResolvedValue(undefined);
   mocks.updateMember.mockResolvedValue(undefined);
+  mocks.updateSelfMemberProfile.mockResolvedValue({ success: true, changed: true, canEdit: false, nextAllowedAt: new Date("2026-10-31T15:00:00Z") });
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.useRealTimers(); });
 
@@ -50,7 +53,8 @@ describe("회원정보 수정", () => {
   it("OTP를 통과한 고객은 자기 정보만 수정한다", async () => {
     const profileToken = await createMemberProfileToken(member.id, member.email);
     await appRouter.createCaller(context()).membership.updateProfile({ memberId: member.id, profileToken, phone: "01033334444" });
-    expect(mocks.updateMember).toHaveBeenCalledWith(member.id, { phone: "010-3333-4444" });
+    expect(mocks.updateSelfMemberProfile).toHaveBeenCalledWith({ memberId: member.id, verifiedEmail: member.email, phone: "010-3333-4444", birthDate: undefined });
+    expect(mocks.updateMember).not.toHaveBeenCalled();
     expect(mocks.issueCoupon).not.toHaveBeenCalled();
   });
   it("URL 회원번호나 위조 토큰만으로는 수정할 수 없다", async () => {
@@ -58,6 +62,7 @@ describe("회원정보 수정", () => {
     const profileToken = await createMemberProfileToken(102, member.email);
     await expect(appRouter.createCaller(context()).membership.updateProfile({ memberId: member.id, profileToken, birthDate: "1990-02-18" })).rejects.toThrow("본인인증");
     expect(mocks.updateMember).not.toHaveBeenCalled();
+    expect(mocks.updateSelfMemberProfile).not.toHaveBeenCalled();
   });
   it("30분 지난 토큰을 거부한다", async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-15T00:00:00Z"));
@@ -71,5 +76,10 @@ describe("회원정보 수정", () => {
     await expect(verifyMemberProfileToken(result.profileToken, member.id, member.email)).resolves.toBeUndefined();
     mocks.verifyOtp.mockResolvedValue(false);
     await expect(appRouter.createCaller(context()).membership.verifyOtp({ email: member.email, code: "123456" })).rejects.toThrow();
+  });
+  it("수정 가능 상태 조회도 이메일 본인인증이 필요하다", async () => {
+    await expect(appRouter.createCaller(context()).membership.getProfileEditStatus({ memberId: member.id, profileToken: "forged" })).rejects.toThrow("본인인증");
+    const profileToken = await createMemberProfileToken(member.id, member.email);
+    expect((await appRouter.createCaller(context()).membership.getProfileEditStatus({ memberId: member.id, profileToken })).canEdit).toBe(true);
   });
 });

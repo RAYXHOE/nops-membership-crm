@@ -61,6 +61,8 @@ import { memberRegistrationSchema, memberPhoneSchema, memberBirthDateSchema } fr
 import { getCouponExpiryAt } from "@shared/couponPolicy";
 import { getSepCombo2026ExpiryAt, SEP_COMBO_2026 } from "@shared/septemberComboCampaign";
 import { createMemberProfileToken, verifyMemberProfileToken } from "./memberProfileAuth";
+import { updateSelfMemberProfile } from "./memberProfileDb";
+import { getMemberProfileEditAvailability } from "@shared/memberProfilePolicy";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -578,6 +580,16 @@ export const appRouter = router({
         return { success: true, memberId: member.id, profileToken };
       }),
 
+    getProfileEditStatus: publicProcedure
+      .input(z.object({ memberId: z.number().int().positive(), profileToken: z.string().min(1).max(4096) }))
+      .query(async ({ input }) => {
+        const member = await getMemberById(input.memberId);
+        if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
+        await verifyMemberProfileToken(input.profileToken, member.id, member.email);
+        if (member.status !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "활성 회원만 수정할 수 있습니다." });
+        return getMemberProfileEditAvailability(member.lastSelfProfileEditAt);
+      }),
+
     // Editing requires server-verified email OTP, never just a URL memberId.
     updateProfile: publicProcedure
       .input(z.object({
@@ -590,17 +602,10 @@ export const appRouter = router({
         const member = await getMemberById(input.memberId);
         if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
         await verifyMemberProfileToken(input.profileToken, member.id, member.email);
-        if (member.status !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "활성 회원만 수정할 수 있습니다." });
-        if (input.phone !== undefined && input.phone.replace(/\D/g, "") !== member.phone.replace(/\D/g, "")) {
-          const duplicate = await getMemberByPhone(input.phone);
-          if (duplicate && duplicate.id !== member.id) throw new TRPCError({ code: "CONFLICT", message: "이미 등록된 연락처입니다. 고객 문의로 확인을 요청해 주세요." });
-        }
-        await updateMember(member.id, {
-          ...(input.phone !== undefined ? { phone: input.phone } : {}),
-          ...(input.birthDate !== undefined ? { birthDate: new Date(`${input.birthDate}T00:00:00.000Z`) } : {}),
+        return updateSelfMemberProfile({
+          memberId: member.id, verifiedEmail: member.email,
+          phone: input.phone, birthDate: input.birthDate,
         });
-        // Does not issue/reissue coupons or alter existing consent/points.
-        return { success: true };
       }),
 
     // 결혼기념일 업데이트 (미등록 시만 1회 허용)

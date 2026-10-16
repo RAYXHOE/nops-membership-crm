@@ -55,6 +55,8 @@ export const members = mysqlTable("members", {
   status: mysqlEnum("status", ["active", "inactive", "withdrawn"]).default("active").notNull(),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  // 고객 본인 연락처·생년월일 수정 성공 시각 (관리자 변경과 분리, UTC)
+  lastSelfProfileEditAt: timestamp("lastSelfProfileEditAt"),
   // 방문/예정 매장 (가입 시 선택 입력)
   visitedBranch: varchar("visitedBranch", { length: 100 }),
   // 메모

@@ -71,6 +71,13 @@
       "when": 1792076915778,
       "tag": "0009_shallow_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1792116960026,
+      "tag": "0010_outgoing_sharon_ventura",
+      "breakpoints": true
     }
   ]
 }

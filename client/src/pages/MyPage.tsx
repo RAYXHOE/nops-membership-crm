@@ -162,19 +162,29 @@ function ProfileEditor({ memberId, phone, birthDate, profileToken, onUpdated, on
   const [editing, setEditing] = useState(false);
   const [newPhone, setNewPhone] = useState(phone);
   const [newBirthDate, setNewBirthDate] = useState(new Date(birthDate).toISOString().slice(0, 10));
+  const statusQuery = trpc.membership.getProfileEditStatus.useQuery(
+    { memberId, profileToken: profileToken ?? "" },
+    { enabled: !!profileToken, refetchOnWindowFocus: true },
+  );
+  const limited = !!profileToken && statusQuery.data?.canEdit === false;
+  const nextAllowed = statusQuery.data?.nextAllowedAt
+    ? new Date(statusQuery.data.nextAllowedAt).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" }) : null;
   const mutation = trpc.membership.updateProfile.useMutation({
-    onSuccess: () => { setEditing(false); onUpdated(); toast.success("연락처·생년월일이 저장되었습니다."); },
-    onError: (error) => toast.error(error.message),
+    onSuccess: (data) => { setEditing(false); onUpdated(); statusQuery.refetch(); toast.success(data.changed ? "연락처·생년월일이 저장되었습니다. 이번 달 수정이 완료되었습니다." : "변경된 정보가 없습니다. 수정 횟수는 차감되지 않습니다."); },
+    onError: (error) => { toast.error(error.message); if (error.data?.code === "TOO_MANY_REQUESTS") statusQuery.refetch(); },
   });
   return (
     <div className="py-4 border-t border-border/30">
       <div className="flex items-center justify-between gap-3 mb-3">
         <p className="text-sm font-semibold">회원정보</p>
-        {!editing && <Button size="sm" variant="outline" onClick={() => {
+        {!editing && <Button size="sm" variant="outline" disabled={!!profileToken && (limited || statusQuery.isLoading || !!statusQuery.error)} onClick={() => {
           if (!profileToken) { onReauthenticate(); return; }
           setNewPhone(phone); setNewBirthDate(new Date(birthDate).toISOString().slice(0, 10)); setEditing(true);
         }}><Pencil className="w-3.5 h-3.5 mr-1.5" />연락처·생년월일 수정</Button>}
       </div>
+      <p className="text-xs text-muted-foreground mb-3">연락처·생년월일 수정은 합산 월 1회이며, 매월 1일 00:00(한국시간)에 다시 가능합니다.</p>
+      {limited && <p className="text-xs text-amber-700 mb-3">이번 달 수정이 완료되었습니다. 다음 수정 가능일: {nextAllowed}. 긴급 정정은 고객 문의를 이용해 주세요.</p>}
+      {profileToken && statusQuery.error && <div className="mb-3 text-xs text-destructive"><p>{statusQuery.error.message}</p><Button size="sm" variant="outline" onClick={statusQuery.error.data?.code === "UNAUTHORIZED" ? onReauthenticate : () => statusQuery.refetch()}>{statusQuery.error.data?.code === "UNAUTHORIZED" ? "이메일 다시 인증" : "다시 확인"}</Button></div>}
       {!profileToken ? (
         <p className="text-xs text-muted-foreground">등록 이메일로 본인인증 후 연락처·생년월일을 확인하고 수정할 수 있습니다.</p>
       ) : !editing ? (
@@ -186,9 +196,9 @@ function ProfileEditor({ memberId, phone, birthDate, profileToken, onUpdated, on
         }}>
           <div><Label htmlFor="profile-phone">연락처</Label><Input id="profile-phone" type="tel" inputMode="numeric" value={newPhone} onChange={(event) => setNewPhone(formatKoreanMobilePhone(event.target.value))} required /></div>
           <div><Label htmlFor="profile-birth-date">생년월일</Label><Input id="profile-birth-date" type="date" value={newBirthDate} onChange={(event) => setNewBirthDate(event.target.value)} required /></div>
-          <p className="text-xs text-muted-foreground">회원정보만 수정하며 기존 쿠폰·적립금·수신동의는 변경되지 않습니다. 인증이 만료되면 다시 인증해 주세요.</p>
+          <p className="text-xs text-muted-foreground">실제 변경 저장이 성공한 경우만 1회로 계산됩니다. 두 항목을 한 번에 확인해 주세요. 기존 쿠폰·적립금·수신동의는 변경되지 않습니다.</p>
           {mutation.error?.data?.code === "UNAUTHORIZED" && <Button type="button" variant="outline" size="sm" onClick={onReauthenticate}>이메일 다시 인증</Button>}
-          <div className="flex justify-end gap-2"><Button type="button" size="sm" variant="ghost" disabled={mutation.isPending} onClick={() => setEditing(false)}>취소</Button><Button type="submit" size="sm" disabled={mutation.isPending}>{mutation.isPending ? "저장 중..." : "변경 저장"}</Button></div>
+          <div className="flex justify-end gap-2"><Button type="button" size="sm" variant="ghost" disabled={mutation.isPending} onClick={() => setEditing(false)}>취소</Button><Button type="submit" size="sm" disabled={mutation.isPending || limited}>{mutation.isPending ? "저장 중..." : "변경 저장"}</Button></div>
         </form>
       )}
     </div>
