@@ -1,0 +1,1 @@
+ALTER TABLE `member_contact_challenges` MODIFY COLUMN `purpose` enum('phone_login','email_change','phone_change') NOT NULL;

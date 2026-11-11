@@ -12,10 +12,11 @@ export function getMemberProfileEditAvailability(lastEditedAt: Date | string | n
 }
 
 export function getChangedMemberProfileFields(
-  current: { phone: string; birthDate: Date | string },
-  input: { phone?: string; birthDate?: string },
+  current: { email?: string; phone: string; birthDate: Date | string },
+  input: { email?: string; phone?: string; birthDate?: string },
 ) {
-  const changes: { phone?: string; birthDate?: Date } = {};
+  const changes: { email?: string; phone?: string; birthDate?: Date } = {};
+  if (input.email !== undefined && input.email.trim().toLowerCase() !== current.email?.trim().toLowerCase()) changes.email = input.email.trim().toLowerCase();
   if (input.phone !== undefined && input.phone.replace(/\D/g, "") !== current.phone.replace(/\D/g, "")) changes.phone = input.phone;
   const birthDate = new Date(current.birthDate).toISOString().slice(0, 10);
   if (input.birthDate !== undefined && input.birthDate !== birthDate) changes.birthDate = new Date(`${input.birthDate}T00:00:00.000Z`);

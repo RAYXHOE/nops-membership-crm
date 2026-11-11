@@ -78,6 +78,20 @@
       "when": 1792116960026,
       "tag": "0010_outgoing_sharon_ventura",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1794383778667,
+      "tag": "0011_rapid_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1794384032976,
+      "tag": "0012_ordinary_wrecker",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { COOKIE_NAME } from "@shared/const";
 import { TRPCError } from "@trpc/server";
+import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -57,12 +58,13 @@ import {
 import { sendWelcomeEmail, sendOtpEmail, sendNewInquiryAlertEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
 import { createOtp, verifyOtp as verifyOtpDb } from "./db";
-import { memberRegistrationSchema, memberPhoneSchema, memberBirthDateSchema } from "@shared/memberRegistration";
+import { memberRegistrationSchema, memberPhoneSchema, memberBirthDateSchema, memberEmailSchema } from "@shared/memberRegistration";
 import { getCouponExpiryAt } from "@shared/couponPolicy";
 import { getSepCombo2026ExpiryAt, SEP_COMBO_2026 } from "@shared/septemberComboCampaign";
 import { createMemberProfileToken, verifyMemberProfileToken } from "./memberProfileAuth";
 import { updateSelfMemberProfile } from "./memberProfileDb";
 import { getMemberProfileEditAvailability } from "@shared/memberProfilePolicy";
+import { requestMemberPhoneLogin, verifyMemberPhoneLogin, requestMemberEmailChange, verifyMemberEmailChange, verifyMemberEmailChangeProof, requestMemberPhoneChange, verifyMemberPhoneChange, verifyMemberPhoneChangeProof } from "./memberContactVerification";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateCouponCode(prefix: string): string {
@@ -560,9 +562,11 @@ export const appRouter = router({
         if (!member) {
           throw new TRPCError({ code: "NOT_FOUND", message: "가입되지 않은 이메일입니다." });
         }
-        const code = String(Math.floor(100000 + Math.random() * 900000));
+        if (member.status !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "활성 회원만 로그인할 수 있습니다." });
+        const code = String(randomInt(0, 1000000)).padStart(6, "0");
         await createOtp(input.email, code);
-        await sendOtpEmail({ to: input.email, name: member.name ?? "회원", code });
+        const delivery = await sendOtpEmail({ to: input.email, name: member.name ?? "회원", code });
+        if (!delivery.success) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "인증 메일을 발송할 수 없습니다. 잠시 후 다시 시도해 주세요." });
         return { success: true };
       }),
 
@@ -576,36 +580,72 @@ export const appRouter = router({
         }
         const member = await getMemberByEmail(input.email);
         if (!member) throw new TRPCError({ code: "NOT_FOUND" });
-        const profileToken = await createMemberProfileToken(member.id, member.email);
+        if (member.status !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "활성 회원만 로그인할 수 있습니다." });
+        const profileToken = await createMemberProfileToken(member.id, member.email, member.phone);
         return { success: true, memberId: member.id, profileToken };
       }),
+
+    // Existing registered phone can recover login when the registration email has a typo.
+    sendPhoneLoginOtp: publicProcedure
+      .input(z.object({ phone: memberPhoneSchema }))
+      .mutation(({ input, ctx }) => requestMemberPhoneLogin({ phone: input.phone, requestKey: ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? "unknown" })),
+    verifyPhoneLoginOtp: publicProcedure
+      .input(z.object({ phone: memberPhoneSchema, challengeId: z.string().uuid(), code: z.string().regex(/^\d{6}$/) }))
+      .mutation(({ input }) => verifyMemberPhoneLogin(input)),
+    sendProfileEmailOtp: publicProcedure
+      .input(z.object({ memberId: z.number().int().positive(), profileToken: z.string().min(1).max(4096), newEmail: memberEmailSchema }))
+      .mutation(({ input, ctx }) => requestMemberEmailChange({ ...input, newEmail: input.newEmail.trim().toLowerCase(), requestKey: ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? "unknown" })),
+    verifyProfileEmailOtp: publicProcedure
+      .input(z.object({ memberId: z.number().int().positive(), profileToken: z.string().min(1).max(4096), newEmail: memberEmailSchema, challengeId: z.string().uuid(), code: z.string().regex(/^\d{6}$/) }))
+      .mutation(({ input }) => verifyMemberEmailChange({ ...input, newEmail: input.newEmail.trim().toLowerCase() })),
+    sendProfilePhoneOtp: publicProcedure
+      .input(z.object({ memberId: z.number().int().positive(), profileToken: z.string().min(1).max(4096), newPhone: memberPhoneSchema }))
+      .mutation(({ input, ctx }) => requestMemberPhoneChange({ ...input, requestKey: ctx.req.ip ?? ctx.req.socket?.remoteAddress ?? "unknown" })),
+    verifyProfilePhoneOtp: publicProcedure
+      .input(z.object({ memberId: z.number().int().positive(), profileToken: z.string().min(1).max(4096), newPhone: memberPhoneSchema, challengeId: z.string().uuid(), code: z.string().regex(/^\d{6}$/) }))
+      .mutation(({ input }) => verifyMemberPhoneChange(input)),
 
     getProfileEditStatus: publicProcedure
       .input(z.object({ memberId: z.number().int().positive(), profileToken: z.string().min(1).max(4096) }))
       .query(async ({ input }) => {
         const member = await getMemberById(input.memberId);
         if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
-        await verifyMemberProfileToken(input.profileToken, member.id, member.email);
+        await verifyMemberProfileToken(input.profileToken, member.id, member.email, member.phone);
         if (member.status !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "활성 회원만 수정할 수 있습니다." });
         return getMemberProfileEditAvailability(member.lastSelfProfileEditAt);
       }),
 
-    // Editing requires server-verified email OTP, never just a URL memberId.
+    // Editing requires verified login OTP; changing email also requires separate new-address proof.
     updateProfile: publicProcedure
       .input(z.object({
         memberId: z.number().int().positive(),
         profileToken: z.string().min(1).max(4096),
         phone: memberPhoneSchema.optional(),
         birthDate: memberBirthDateSchema.optional(),
-      }).refine((input) => input.phone !== undefined || input.birthDate !== undefined, "수정할 항목을 입력해 주세요."))
+        email: memberEmailSchema.optional(),
+        emailChangeToken: z.string().min(1).max(4096).optional(),
+        phoneChangeToken: z.string().min(1).max(4096).optional(),
+      }).refine((input) => input.phone !== undefined || input.birthDate !== undefined || input.email !== undefined, "수정할 항목을 입력해 주세요."))
       .mutation(async ({ input }) => {
         const member = await getMemberById(input.memberId);
         if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "회원을 찾을 수 없습니다." });
-        await verifyMemberProfileToken(input.profileToken, member.id, member.email);
-        return updateSelfMemberProfile({
-          memberId: member.id, verifiedEmail: member.email,
-          phone: input.phone, birthDate: input.birthDate,
+        await verifyMemberProfileToken(input.profileToken, member.id, member.email, member.phone);
+        const email = input.email?.trim().toLowerCase();
+        let emailProof: { challengeId: string; issuerHash: string } | undefined;
+        if (email !== undefined && email !== member.email.trim().toLowerCase()) {
+          if (!input.emailChangeToken) throw new TRPCError({ code: "UNAUTHORIZED", message: "새 이메일 주소 인증을 먼저 완료해 주세요." });
+          emailProof = await verifyMemberEmailChangeProof({ memberId: member.id, profileToken: input.profileToken, newEmail: email, emailChangeToken: input.emailChangeToken });
+        }
+        let phoneProof: { challengeId: string; issuerHash: string } | undefined;
+        if (input.phone !== undefined && input.phone.replace(/\D/g, "") !== member.phone.replace(/\D/g, "")) {
+          if (!input.phoneChangeToken) throw new TRPCError({ code: "UNAUTHORIZED", message: "새 전화번호 문자 인증을 먼저 완료해 주세요." });
+          phoneProof = await verifyMemberPhoneChangeProof({ memberId: member.id, profileToken: input.profileToken, newPhone: input.phone, phoneChangeToken: input.phoneChangeToken });
+        }
+        const { auth, ...result } = await updateSelfMemberProfile({
+          memberId: member.id, verifiedEmail: member.email, verifiedPhone: member.phone,
+          phone: input.phone, birthDate: input.birthDate, email, emailProof, phoneProof,
         });
+        return { ...result, profileToken: await createMemberProfileToken(member.id, auth.email, auth.phone) };
       }),
 
     // 결혼기념일 업데이트 (미등록 시만 1회 허용)

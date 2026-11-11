@@ -386,15 +386,18 @@ export async function sendOtpEmail({
   to,
   name,
   code,
+  purpose = "login",
 }: {
   to: string;
   name: string;
   code: string;
+  purpose?: "login" | "email_change";
 }) {
-  await resend.emails.send({
+  try {
+  const result = await resend.emails.send({
     from: FROM_EMAIL,
     to,
-    subject: `[NOPS Steak House] 인증코드: ${code}`,
+    subject: purpose === "email_change" ? "[NOPS Steak House] 이메일 변경 인증 안내" : "[NOPS Steak House] 로그인 인증 안내",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <div style="background: #1a1a1a; padding: 32px; text-align: center; border-radius: 12px 12px 0 0;">
@@ -402,10 +405,10 @@ export async function sendOtpEmail({
           <h1 style="color: #ffffff; font-size: 22px; margin: 0;">NOPS Steak House</h1>
         </div>
         <div style="background: #ffffff; padding: 32px; border-radius: 0 0 12px 12px; border: 1px solid #e5e5e5; border-top: none;">
-          <h2 style="font-size: 18px; margin: 0 0 8px;">${name}님, 인증코드를 확인해주세요</h2>
-          <p style="color: #666; font-size: 14px; margin: 0 0 24px;">아래 6자리 코드를 입력하면 쿠폰을 확인할 수 있습니다.</p>
+          <h2 style="font-size: 18px; margin: 0 0 8px;">${escapeHtml(name)}님, 인증코드를 확인해주세요</h2>
+          <p style="color: #666; font-size: 14px; margin: 0 0 24px;">${purpose === "email_change" ? "새 이메일 주소를 확인하는 인증입니다. 인증 완료 후 마이페이지에서 변경 저장을 눌러야 이메일이 변경됩니다." : "아래 6자리 코드를 입력하면 쿠폰을 확인할 수 있습니다."}</p>
           <div style="background: #f5f5f5; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
-            <p style="font-size: 36px; font-weight: bold; font-family: monospace; letter-spacing: 0.3em; color: #1a1a1a; margin: 0;">${code}</p>
+            <p style="font-size: 36px; font-weight: bold; font-family: monospace; letter-spacing: 0.3em; color: #1a1a1a; margin: 0;">${escapeHtml(code)}</p>
             <p style="font-size: 12px; color: #999; margin: 8px 0 0;">10분 이내에 입력해주세요</p>
           </div>
           <p style="text-align: center; color: #999; font-size: 11px; margin: 0;">
@@ -416,6 +419,11 @@ export async function sendOtpEmail({
       </div>
     `,
   });
+  if (result.error || !result.data?.id) return { success: false as const };
+  return { success: true as const, id: result.data.id };
+  } catch {
+    return { success: false as const };
+  }
 }
 
 // ─── 고객 문의 답변 이메일 ──────────────────────────────────────────────────────

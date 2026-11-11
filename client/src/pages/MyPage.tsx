@@ -2,9 +2,9 @@ import { useState } from "react";
 import { Link, useSearch } from "wouter";
 import { trpc } from "@/lib/trpc";
 import {
-  Crown, ArrowLeft, Search, Gift, CheckCircle2, Clock,
+  Crown, ArrowLeft, Gift, CheckCircle2, Clock,
   XCircle, QrCode, Copy, Heart, Pencil, Check, X,
-  Mail, ShieldCheck, Loader2, MessageCircle, AlertTriangle
+  MessageCircle, AlertTriangle
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { CouponData as Coupon } from "@shared/types";
-import { formatKoreanMobilePhone } from "@shared/memberRegistration";
+import { LoginStep, LoginOtpStep, type LoginChallenge } from "@/components/MyPageAuthentication";
+import { ProfileEditor } from "@/components/MyPageProfileEditor";
 
 function QRCodeImage({ value, size = 200 }: { value: string; size?: number }) {
   const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=ffffff&color=1a1a1a&margin=10`;
@@ -98,114 +99,7 @@ function AnniversarySection({ memberId, current, onUpdated }: { memberId: number
   );
 }
 
-function EmailStep({ onNext }: { onNext: (email: string) => void }) {
-  const [email, setEmail] = useState("");
-  const sendOtpMutation = trpc.membership.sendOtp.useMutation({
-    onSuccess: () => { toast.success("인증코드가 이메일로 발송되었습니다."); onNext(email); },
-    onError: (err) => toast.error(err.message),
-  });
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!email) return; sendOtpMutation.mutate({ email }); };
-  return (
-    <div className="bg-card rounded-2xl border border-border/50 p-8 mb-8">
-      <div className="flex items-center gap-2 mb-2"><Mail className="w-4 h-4 text-primary" /><p className="text-sm font-semibold text-foreground">이메일 인증</p></div>
-      <p className="text-sm text-muted-foreground mb-6">가입 시 등록한 이메일로 인증코드를 발송합니다</p>
-      <form onSubmit={handleSubmit} className="flex gap-3">
-        <Input type="email" placeholder="이메일 입력" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 flex-1" required />
-        <Button type="submit" className="h-11 px-6 gap-2" disabled={sendOtpMutation.isPending}>
-          {sendOtpMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}발송
-        </Button>
-      </form>
-      <div className="mt-6 pt-6 border-t border-border/50 text-center">
-        <p className="text-xs text-muted-foreground mb-3">아직 회원이 아니신가요?</p>
-        <Link href="/register"><Button variant="outline" size="sm">무료 가입</Button></Link>
-      </div>
-    </div>
-  );
-}
-
-function OtpStep({ email, onSuccess, onBack }: { email: string; onSuccess: (memberId: number, profileToken: string) => void; onBack: () => void }) {
-  const [code, setCode] = useState("");
-  const verifyMutation = trpc.membership.verifyOtp.useMutation({
-    onSuccess: (data) => { toast.success("인증되었습니다."); onSuccess(data.memberId, data.profileToken); },
-    onError: (err) => toast.error(err.message),
-  });
-  const resendMutation = trpc.membership.sendOtp.useMutation({
-    onSuccess: () => toast.success("인증코드를 재발송했습니다."),
-    onError: (err) => toast.error(err.message),
-  });
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (code.length !== 6) { toast.error("6자리 코드를 입력해주세요."); return; } verifyMutation.mutate({ email, code }); };
-  return (
-    <div className="bg-card rounded-2xl border border-border/50 p-8 mb-8">
-      <div className="flex items-center gap-2 mb-2"><ShieldCheck className="w-4 h-4 text-primary" /><p className="text-sm font-semibold text-foreground">인증코드 입력</p></div>
-      <p className="text-sm text-muted-foreground mb-1"><span className="font-medium text-foreground">{email}</span> 로 발송된</p>
-      <p className="text-sm text-muted-foreground mb-6">6자리 코드를 입력해주세요 (10분 이내)</p>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input placeholder="인증코드 6자리" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} className="h-11 text-center text-xl font-mono tracking-widest" inputMode="numeric" maxLength={6} autoFocus />
-        <Button type="submit" className="w-full h-11" disabled={verifyMutation.isPending}>
-          {verifyMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}확인
-        </Button>
-      </form>
-      <div className="flex items-center justify-between mt-4">
-        <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground transition-colors">← 이메일 다시 입력</button>
-        <button onClick={() => resendMutation.mutate({ email })} disabled={resendMutation.isPending} className="text-xs text-primary hover:opacity-70 transition-opacity">
-          {resendMutation.isPending ? "발송 중..." : "코드 재발송"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ProfileEditor({ memberId, phone, birthDate, profileToken, onUpdated, onReauthenticate }: {
-  memberId: number; phone: string; birthDate: Date | string; profileToken: string | null;
-  onUpdated: () => void; onReauthenticate: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [newPhone, setNewPhone] = useState(phone);
-  const [newBirthDate, setNewBirthDate] = useState(new Date(birthDate).toISOString().slice(0, 10));
-  const statusQuery = trpc.membership.getProfileEditStatus.useQuery(
-    { memberId, profileToken: profileToken ?? "" },
-    { enabled: !!profileToken, refetchOnWindowFocus: true },
-  );
-  const limited = !!profileToken && statusQuery.data?.canEdit === false;
-  const nextAllowed = statusQuery.data?.nextAllowedAt
-    ? new Date(statusQuery.data.nextAllowedAt).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" }) : null;
-  const mutation = trpc.membership.updateProfile.useMutation({
-    onSuccess: (data) => { setEditing(false); onUpdated(); statusQuery.refetch(); toast.success(data.changed ? "연락처·생년월일이 저장되었습니다. 이번 달 수정이 완료되었습니다." : "변경된 정보가 없습니다. 수정 횟수는 차감되지 않습니다."); },
-    onError: (error) => { toast.error(error.message); if (error.data?.code === "TOO_MANY_REQUESTS") statusQuery.refetch(); },
-  });
-  return (
-    <div className="py-4 border-t border-border/30">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <p className="text-sm font-semibold">회원정보</p>
-        {!editing && <Button size="sm" variant="outline" disabled={!!profileToken && (limited || statusQuery.isLoading || !!statusQuery.error)} onClick={() => {
-          if (!profileToken) { onReauthenticate(); return; }
-          setNewPhone(phone); setNewBirthDate(new Date(birthDate).toISOString().slice(0, 10)); setEditing(true);
-        }}><Pencil className="w-3.5 h-3.5 mr-1.5" />연락처·생년월일 수정</Button>}
-      </div>
-      <p className="text-xs text-muted-foreground mb-3">연락처·생년월일 수정은 합산 월 1회이며, 매월 1일 00:00(한국시간)에 다시 가능합니다.</p>
-      {limited && <p className="text-xs text-amber-700 mb-3">이번 달 수정이 완료되었습니다. 다음 수정 가능일: {nextAllowed}. 긴급 정정은 고객 문의를 이용해 주세요.</p>}
-      {profileToken && statusQuery.error && <div className="mb-3 text-xs text-destructive"><p>{statusQuery.error.message}</p><Button size="sm" variant="outline" onClick={statusQuery.error.data?.code === "UNAUTHORIZED" ? onReauthenticate : () => statusQuery.refetch()}>{statusQuery.error.data?.code === "UNAUTHORIZED" ? "이메일 다시 인증" : "다시 확인"}</Button></div>}
-      {!profileToken ? (
-        <p className="text-xs text-muted-foreground">등록 이메일로 본인인증 후 연락처·생년월일을 확인하고 수정할 수 있습니다.</p>
-      ) : !editing ? (
-        <div className="space-y-1 text-sm"><p>연락처: {phone}</p><p>생년월일: {new Date(birthDate).toISOString().slice(0, 10)}</p></div>
-      ) : (
-        <form className="space-y-3" onSubmit={(event) => {
-          event.preventDefault();
-          if (profileToken) mutation.mutate({ memberId, profileToken, phone: newPhone, birthDate: newBirthDate });
-        }}>
-          <div><Label htmlFor="profile-phone">연락처</Label><Input id="profile-phone" type="tel" inputMode="numeric" value={newPhone} onChange={(event) => setNewPhone(formatKoreanMobilePhone(event.target.value))} required /></div>
-          <div><Label htmlFor="profile-birth-date">생년월일</Label><Input id="profile-birth-date" type="date" value={newBirthDate} onChange={(event) => setNewBirthDate(event.target.value)} required /></div>
-          <p className="text-xs text-muted-foreground">실제 변경 저장이 성공한 경우만 1회로 계산됩니다. 두 항목을 한 번에 확인해 주세요. 기존 쿠폰·적립금·수신동의는 변경되지 않습니다.</p>
-          {mutation.error?.data?.code === "UNAUTHORIZED" && <Button type="button" variant="outline" size="sm" onClick={onReauthenticate}>이메일 다시 인증</Button>}
-          <div className="flex justify-end gap-2"><Button type="button" size="sm" variant="ghost" disabled={mutation.isPending} onClick={() => setEditing(false)}>취소</Button><Button type="submit" size="sm" disabled={mutation.isPending || limited}>{mutation.isPending ? "저장 중..." : "변경 저장"}</Button></div>
-        </form>
-      )}
-    </div>
-  );
-}
-
-function CouponView({ memberId, profileToken, onReauthenticate }: { memberId: number; profileToken: string | null; onReauthenticate: () => void }) {
+function CouponView({ memberId, profileToken, onProfileToken, onReauthenticate }: { memberId: number; profileToken: string | null; onProfileToken: (token: string) => void; onReauthenticate: () => void }) {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
   const [showInquiry, setShowInquiry] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
@@ -316,7 +210,7 @@ function CouponView({ memberId, profileToken, onReauthenticate }: { memberId: nu
               </div>
             </div>
           )}
-          {member.status === "active" && <ProfileEditor memberId={memberId} phone={member.phone} birthDate={member.birthDate} profileToken={profileToken} onUpdated={() => memberInfoQuery.refetch()} onReauthenticate={onReauthenticate} />}
+          {member.status === "active" && <ProfileEditor key={memberId} memberId={memberId} phone={member.phone} birthDate={member.birthDate} currentEmail={member.email} profileToken={profileToken} onProfileToken={onProfileToken} onUpdated={() => { void memberInfoQuery.refetch(); }} onReauthenticate={onReauthenticate} />}
           <AnniversarySection memberId={memberId} current={(member as typeof member & { anniversaryDate?: string | null }).anniversaryDate ?? null} onUpdated={() => memberInfoQuery.refetch()} />
         </div>
       )}
@@ -471,7 +365,7 @@ function CouponView({ memberId, profileToken, onReauthenticate }: { memberId: nu
   );
 }
 
-type Step = "email" | "otp" | "coupons";
+type Step = "login" | "otp" | "coupons";
 
 export default function MyPage() {
   const search = useSearch();
@@ -480,9 +374,10 @@ export default function MyPage() {
   // 가입 완료 후 자동 진입: memberId가 URL에 있으면 OTP 건너뜀
   const urlMemberId = params.get("memberId") ? Number(params.get("memberId")) : null;
 
-  const [step, setStep] = useState<Step>(urlMemberId ? "coupons" : "email");
-  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<Step>(urlMemberId ? "coupons" : "login");
+  const [challenge, setChallenge] = useState<LoginChallenge | null>(null);
   const [memberId, setMemberId] = useState<number | null>(urlMemberId);
+  // 인증 토큰은 React 메모리에만 보관하며 URL·localStorage에 저장하지 않습니다.
   const [profileToken, setProfileToken] = useState<string | null>(null);
 
   return (
@@ -505,9 +400,9 @@ export default function MyPage() {
           <p className="text-primary text-xs tracking-[0.3em] uppercase mb-3">My Page</p>
           <h1 className="text-3xl font-bold text-foreground">내 쿠폰</h1>
         </div>
-        {step === "email" && <EmailStep onNext={(e) => { setEmail(e); setStep("otp"); }} />}
-        {step === "otp" && <OtpStep email={email} onSuccess={(id, token) => { setMemberId(id); setProfileToken(token); setStep("coupons"); }} onBack={() => setStep("email")} />}
-        {step === "coupons" && memberId && <CouponView memberId={memberId} profileToken={profileToken} onReauthenticate={() => { setProfileToken(null); setStep("email"); toast.info("회원정보 수정 전 가입 이메일로 본인인증해 주세요."); }} />}
+        {step === "login" && <LoginStep onNext={(nextChallenge) => { setChallenge(nextChallenge); setStep("otp"); }} />}
+        {step === "otp" && challenge && <LoginOtpStep challenge={challenge} onSuccess={(id, token) => { setMemberId(id); setProfileToken(token); setChallenge(null); setStep("coupons"); }} onBack={() => { setChallenge(null); setStep("login"); }} />}
+        {step === "coupons" && memberId && <CouponView memberId={memberId} profileToken={profileToken} onProfileToken={setProfileToken} onReauthenticate={() => { setProfileToken(null); setChallenge(null); setStep("login"); toast.info("회원정보 수정 전 등록 이메일 또는 휴대폰으로 다시 본인인증해 주세요."); }} />}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import {
   decimal,
   date,
   uniqueIndex,
+  index,
 } from "drizzle-orm/mysql-core";
 
 // ─── Core Auth User (OAuth) ───────────────────────────────────────────────────
@@ -55,7 +56,7 @@ export const members = mysqlTable("members", {
   status: mysqlEnum("status", ["active", "inactive", "withdrawn"]).default("active").notNull(),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  // 고객 본인 연락처·생년월일 수정 성공 시각 (관리자 변경과 분리, UTC)
+  // 고객 본인 이메일·연락처·생년월일 수정 성공 시각 (관리자 변경과 분리, UTC)
   lastSelfProfileEditAt: timestamp("lastSelfProfileEditAt"),
   // 방문/예정 매장 (가입 시 선택 입력)
   visitedBranch: varchar("visitedBranch", { length: 100 }),
@@ -175,6 +176,28 @@ export const otpCodes = mysqlTable("otp_codes", {
   used: boolean("used").notNull().default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+// 인증번호는 목적·챌린지 ID에 결합한 HMAC만 저장. 기존 이메일 로그인 OTP와 분리.
+export const memberContactChallenges = mysqlTable("member_contact_challenges", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  memberId: int("memberId"),
+  purpose: mysqlEnum("purpose", ["phone_login", "email_change", "phone_change"]).notNull(),
+  target: varchar("target", { length: 320 }).notNull(),
+  issuerHash: varchar("issuerHash", { length: 64 }),
+  emailSnapshot: varchar("emailSnapshot", { length: 320 }),
+  phoneSnapshot: varchar("phoneSnapshot", { length: 20 }),
+  codeHash: varchar("codeHash", { length: 64 }).notNull(),
+  attempts: int("attempts").notNull().default(0),
+  expiresAt: timestamp("expiresAt").notNull(),
+  verifiedAt: timestamp("verifiedAt"),
+  usedAt: timestamp("usedAt"),
+  requesterHash: varchar("requesterHash", { length: 64 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [
+  index("member_contact_member_purpose_created").on(table.memberId, table.purpose, table.createdAt),
+  index("member_contact_target_purpose_created").on(table.target, table.purpose, table.createdAt),
+  index("member_contact_requester_created").on(table.requesterHash, table.createdAt),
+]);
 
 // ─── Branches (지점 마스터) ────────────────────────────────────────────────────
 export const branches = mysqlTable("branches", {
