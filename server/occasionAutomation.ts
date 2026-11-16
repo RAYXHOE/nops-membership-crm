@@ -32,7 +32,7 @@ export async function getOccasionAutomationStatus(){
  const db=await getDb();if(!db)throw new Error('database_unavailable');
  const settings=await getOccasionSettings();
  const rows=await db.select({channel:occasionNotifications.channel,status:occasionNotifications.status,count:sql<number>`COUNT(*)`}).from(occasionNotifications).groupBy(occasionNotifications.channel,occasionNotifications.status);
- return {enabled:settings?.enabled??false,channelMode:settings?.channelMode??'none',startDate:settings?dateOnly(settings.startDate):'2026-11-16',leadDays:30 as const,counts:rows.map(r=>({...r,count:Number(r.count)})),nextStep:settings?.enabled?'접수·수신 완료는 별도 상태입니다. 결과 불명·실패는 자동 재발송하지 않습니다.':'최신 버전 게시 확인 후 예약·알림을 활성화해야 합니다.'};
+ return {enabled:settings?.enabled??false,channelMode:settings?.channelMode??'none',startDate:settings?dateOnly(settings.startDate):'2026-11-16',leadDays:30 as const,queuePolicyVersion:'d30-queue-progress-v2' as const,counts:rows.map(r=>({...r,count:Number(r.count)})),nextStep:settings?.enabled?'접수·수신 완료는 별도 상태입니다. 결과 불명·실패는 자동 재발송하지 않습니다.':'최신 버전 게시 확인 후 예약·알림을 활성화해야 합니다.'};
 }
 
 async function marketingEligible(tx:any,m:any):Promise<boolean>{
@@ -79,11 +79,25 @@ export async function queueMemberOccasions(memberId:number, now=new Date(), only
  });
 }
 
+export function pendingOccasionCandidates<T extends {id:number;occasionYear:number}>(due:T[],type:OccasionType,mode:string,notices:Array<{memberId:number;type:string;occasionYear:number;channel:string}>,history:Array<{memberId:number;type:string;birthdayYear:number|null;issuedAt:Date|string;grantKey:string|null;status:string;usedAt:Date|null;expiresAt:Date|string}>,now:Date):T[]{
+ const selectedChannels=channels(mode);if(!selectedChannels.length)return [];
+ const processed=new Set(notices.map(n=>`${n.memberId}:${n.type}:${n.occasionYear}:${n.channel}`));
+ return due.filter(m=>{
+  if(selectedChannels.every(c=>processed.has(`${m.id}:${type}:${m.occasionYear}:${c}`)))return false;
+  const sameYear=history.filter(c=>c.memberId===m.id&&sameOccasionYear(c,type,m.occasionYear));
+  return !sameYear.length||sameYear.some(c=>c.status==='active'&&!c.usedAt&&new Date(c.expiresAt)>now);
+ });
+}
+
 export async function queueDueOccasions(type:OccasionType,now=new Date()):Promise<{issued:number;queued:number;scanned:number;remaining:boolean}>{
  const db=await getDb();if(!db)throw new Error('database_unavailable');
  const cfg=await getOccasionSettings();if(!cfg?.enabled)return {issued:0,queued:0,scanned:0,remaining:false};
  const dates=await db.select({id:members.id,birthDate:members.birthDate,anniversaryDate:members.anniversaryDate}).from(members).where(and(eq(members.status,'active'),eq(members.marketingConsent,true)));
- const due=dates.filter(m=>getDueOccasion(type==='birthday'?m.birthDate:m.anniversaryDate,now));
+ const dateDue=dates.flatMap(m=>{const d=getDueOccasion(type==='birthday'?m.birthDate:m.anniversaryDate,now);return d?[{...m,occasionYear:d.occasionYear}]:[];});
+ if(!dateDue.length)return {issued:0,queued:0,scanned:0,remaining:false};
+ const notices=await db.select({memberId:occasionNotifications.memberId,type:occasionNotifications.type,occasionYear:occasionNotifications.occasionYear,channel:occasionNotifications.channel}).from(occasionNotifications).where(and(eq(occasionNotifications.type,type),eq(occasionNotifications.occasionYear,dateDue[0].occasionYear)));
+ const history=await db.select().from(coupons).where(eq(coupons.type,type));
+ const due=pendingOccasionCandidates(dateDue,type,cfg.channelMode,notices,history,now);
  let issued=0,queued=0,scanned=0;const started=Date.now();
  for(const m of due){if(Date.now()-started>65_000)break;const r=await queueMemberOccasions(m.id,now,type);issued+=r.issued;queued+=r.queued;scanned++;}
  return {issued,queued,scanned,remaining:scanned<due.length};
