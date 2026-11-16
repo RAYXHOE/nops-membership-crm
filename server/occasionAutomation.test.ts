@@ -315,6 +315,85 @@ describe('queueMemberOccasions with a memory Drizzle contract', () => {
     expect(mocks.send).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['birthday', false],
+    ['birthday', true],
+    ['anniversary', false],
+    ['anniversary', true],
+  ] as const)('renews a used previous-year %s coupon at the next occasion D-30 (legacy=%s)', async (type, legacy) => {
+    enable('email_sms');
+    const previous = fakeCoupon({
+      type, birthdayYear: 2026,
+      grantKey: legacy ? null : occasionGrantKey(type, 2026),
+      issuedAt: new Date('2026-01-01T01:00:00Z'),
+      status: 'used', usedAt: new Date('2026-01-15T01:00:00Z'),
+    });
+    fixture.tables.coupons.push(previous);
+    for (const channel of ['email', 'sms']) fixture.tables.occasionNotifications.push(fakeNotification({
+      id: channel === 'email' ? 600001 : 600002,
+      type, channel, occasionYear: 2026,
+      occasionDate: new Date('2026-01-15T00:00:00Z'),
+      scheduledDate: new Date('2025-12-16T00:00:00Z'),
+      status: 'delivered', attemptAt: new Date('2026-01-01T01:00:00Z'),
+    }));
+    expect(await queueMemberOccasions(MEMBER_ID, NOW, type)).toEqual({ issued: 1, queued: 2 });
+    const renewed = fixture.tables.coupons.find(row => row.id !== previous.id)!;
+    expect(renewed).toMatchObject({
+      type, birthdayYear: 2027, grantKey: occasionGrantKey(type, 2027),
+      status: 'active', issuedAt: NOW,
+    });
+    expect(renewed.code).not.toBe(previous.code);
+    const notices = fixture.tables.occasionNotifications.filter(row => row.occasionYear === 2027);
+    expect(notices).toHaveLength(2);
+    expect(notices.map(row => row.channel).sort()).toEqual(['email', 'sms']);
+    for (const row of notices) {
+      expect(row.couponId).toBe(renewed.id);
+      expect(dayKey(row.occasionDate)).toBe('2027-01-15');
+      expect(dayKey(row.scheduledDate)).toBe('2026-12-16');
+    }
+    expect(await queueMemberOccasions(MEMBER_ID, NOW, type)).toEqual({ issued: 0, queued: 0 });
+    expect(previous).toMatchObject({ status: 'used', birthdayYear: 2026 });
+    expect(fixture.tables.coupons).toHaveLength(2);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('renews both occasion types independently for a returning customer without resetting used coupons', async () => {
+    enable('email_sms');
+    const previous = ['birthday', 'anniversary'].map((type, index) => fakeCoupon({
+      id: 800001 + index, type, birthdayYear: 2026,
+      grantKey: occasionGrantKey(type as 'birthday' | 'anniversary', 2026),
+      issuedAt: new Date('2026-01-01T01:00:00Z'),
+      status: 'used', usedAt: new Date('2026-01-15T01:00:00Z'),
+    }));
+    fixture.tables.coupons.push(...previous);
+    expect(await queueMemberOccasions(MEMBER_ID, NOW)).toEqual({ issued: 2, queued: 4 });
+    expect(await queueMemberOccasions(MEMBER_ID, NOW)).toEqual({ issued: 0, queued: 0 });
+    expect(fixture.tables.coupons.filter(row => row.status === 'used')).toHaveLength(2);
+    expect(fixture.tables.coupons.filter(row => row.birthdayYear === 2027 && row.status === 'active')).toHaveLength(2);
+    expect(fixture.tables.occasionNotifications).toHaveLength(4);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('uses the next occasion year, not the coupon use year, and sends only the new coupon once per channel', async () => {
+    enable('email_sms');
+    const nextReminder = new Date('2027-12-16T01:00:00Z');
+    const previous = fakeCoupon({ birthdayYear: 2027, grantKey: occasionGrantKey('birthday', 2027),
+      status: 'used', issuedAt: NOW, usedAt: new Date('2026-12-22T01:00:00Z') });
+    fixture.tables.coupons.push(previous);
+    expect(await queueMemberOccasions(MEMBER_ID, nextReminder, 'birthday')).toEqual({ issued: 1, queued: 2 });
+    const renewed = fixture.tables.coupons.find(row => row.birthdayYear === 2028)!;
+    expect(renewed.grantKey).toBe(occasionGrantKey('birthday', 2028));
+    expect(await dispatchOccasionNotifications(nextReminder)).toEqual({ ...EMPTY_SUMMARY, accepted: 2 });
+    expect(mocks.send).toHaveBeenCalledTimes(2);
+    for (const call of mocks.send.mock.calls) {
+      expect(call[2]).toMatchObject({ type: 'birthday', couponCode: renewed.code, occasionDate: '2028-01-15' });
+      expect(call[2].couponCode).not.toBe(previous.code);
+    }
+    expect(await queueMemberOccasions(MEMBER_ID, nextReminder, 'birthday')).toEqual({ issued: 0, queued: 0 });
+    expect(await dispatchOccasionNotifications(nextReminder)).toEqual(EMPTY_SUMMARY);
+    expect(mocks.send).toHaveBeenCalledTimes(2);
+  });
+
   it('reuses a usable legacy coupon without minting a second annual coupon', async () => {
     enable('email_sms');
     fixture.tables.coupons.push(fakeCoupon({ grantKey: null }));
