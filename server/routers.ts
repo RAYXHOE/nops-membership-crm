@@ -23,7 +23,6 @@ import {
   getMemberByPhone,
   getMemberByNameAndPhone,
   getMemberStats,
-  getMembersWithBirthdayToday,
   getSepCombo2026EligibleMemberCount,
   getSepCombo2026EligibleMembers,
   getPurchaseStats,
@@ -57,6 +56,8 @@ import {
 } from "./db";
 import { sendWelcomeEmail, sendOtpEmail, sendNewInquiryAlertEmail } from "./email";
 import { sendWelcomeAlimtalk } from "./kakao";
+import { queueMemberOccasions, queueDueOccasions, getOccasionAutomationStatus } from "./occasionAutomation";
+import { getDueOccasion } from "@shared/occasionCouponPolicy";
 import { createOtp, verifyOtp as verifyOtpDb } from "./db";
 import { memberRegistrationSchema, memberPhoneSchema, memberBirthDateSchema, memberEmailSchema } from "@shared/memberRegistration";
 import { getCouponExpiryAt } from "@shared/couponPolicy";
@@ -344,46 +345,11 @@ export const appRouter = router({
             console.error(`[Register] ⚠️ discount_percent 템플릿을 찾을 수 없음: memberId=${member.id}, allMarketingConsents=true`);
           }
 
-          // 생일 쿠폰: 마케팅 동의 + 가입 월 = 생일 월이면 즉시 발급 (연도 중복 제외)
-          if (birthdayTemplate && input.birthDate && hasAllMarketingConsents) {
-            const birthMonth = new Date(input.birthDate).getMonth() + 1;
-            const joinMonth = now.getMonth() + 1;
-            const joinYear = now.getFullYear();
-            if (birthMonth === joinMonth) {
-              // 이미 올해 생일 쿠폰 발급된 경우 제외
-              const { getDb: getDbLocal } = await import("./db");
-              const dbLocal = await getDbLocal();
-              const { coupons: couponsSchema } = await import("../drizzle/schema");
-              const { and: andOp, eq: eqOp, sql: sqlOp } = await import("drizzle-orm");
-              const existingBirthday = dbLocal ? await dbLocal.select()
-                .from(couponsSchema)
-                .where(
-                  andOp(
-                    eqOp(couponsSchema.memberId, member.id),
-                    eqOp(couponsSchema.type, "birthday"),
-                    sqlOp`YEAR(issuedAt) = ${joinYear}`
-                  )
-              ).limit(1) : [];
-              if (!existingBirthday || existingBirthday.length === 0) {
-                const expiresAt = getCouponExpiryAt(now);
-                try {
-                  await issueCouponWithRetry({
-                    memberId: member.id,
-                    templateId: birthdayTemplate.id,
-                    code: generateCouponCode("BDAY"),
-                    type: "birthday",
-                    discountPercent: birthdayTemplate.discountPercent,
-                    name: birthdayTemplate.name,
-                    description: `${joinYear}년 생일 축하 쿠폰`,
-                    expiresAt,
-                  });
-                  console.log(`[Register] 생일 쿠폰 즉시 발급: memberId=${member.id} (${birthMonth}월 생일)`);
-                } catch (err) {
-                  console.error(`[CouponIssue] Failed for memberId=${member.id} type=birthday`, err);
-                }
-              }
-            }
-          }
+        }
+
+        // 생일·기념일은 가입 월 즉시 지급하지 않고 정확히 D-30만 처리합니다.
+        if (hasAllMarketingConsents && (getDueOccasion(member.birthDate, now) || getDueOccasion(member.anniversaryDate, now))) {
+          await queueMemberOccasions(member.id, now);
         }
 
         // 발급된 쿠폰 목록 조회
@@ -471,84 +437,9 @@ export const appRouter = router({
           userAgent: "mypage",
         });
 
-        // 마케팅 동의 시: 생일 월 / 기념일 월이면 쿠폰 즉시 발급
-        if (input.marketingConsent) {
-          const currentMonth = now.getMonth() + 1;
-          const currentYear = now.getFullYear();
-          const { getDb: getDbLocal } = await import("./db");
-          const { coupons: couponsSchema } = await import("../drizzle/schema");
-          const { and: andOp, eq: eqOp, sql: sqlOp } = await import("drizzle-orm");
-          const dbLocal = await getDbLocal();
-
-          // 생일 월 일치 시 생일 쿠폰 발급
-          if (member.birthDate) {
-            const birthMonth = new Date(member.birthDate).getMonth() + 1;
-            if (birthMonth === currentMonth && dbLocal) {
-              const existingBirthday = await dbLocal.select()
-                .from(couponsSchema)
-                .where(andOp(
-                  eqOp(couponsSchema.memberId, member.id),
-                  eqOp(couponsSchema.type, "birthday"),
-                  sqlOp`YEAR(issuedAt) = ${currentYear}`
-                )).limit(1);
-              if (existingBirthday.length === 0) {
-                const birthdayTemplate = await getCouponTemplateByType("birthday");
-                if (birthdayTemplate) {
-                  const expiresAt = getCouponExpiryAt(now);
-                  try {
-                    await issueCoupon({
-                      memberId: member.id,
-                      templateId: birthdayTemplate.id,
-                      code: generateCouponCode("BDAY"),
-                      type: "birthday",
-                      discountPercent: birthdayTemplate.discountPercent,
-                      name: birthdayTemplate.name,
-                      description: `${currentYear}년 생일 축하 쿠폰`,
-                      expiresAt,
-                    });
-                    console.log(`[UpdateMarketing] 생일 쿠폰 즉시 발급: memberId=${member.id}`);
-                  } catch (err) {
-                    console.error(`[UpdateMarketing] 생일 쿠폰 발급 실패:`, err);
-                  }
-                }
-              }
-            }
-          }
-
-          // 기념일 월 일치 시 기념일 쿠폰 발급
-          if (member.anniversaryDate) {
-            const anniversaryMonth = new Date(member.anniversaryDate).getMonth() + 1;
-            if (anniversaryMonth === currentMonth && dbLocal) {
-              const existingAnniversary = await dbLocal.select()
-                .from(couponsSchema)
-                .where(andOp(
-                  eqOp(couponsSchema.memberId, member.id),
-                  eqOp(couponsSchema.type, "anniversary"),
-                  sqlOp`YEAR(issuedAt) = ${currentYear}`
-                )).limit(1);
-              if (existingAnniversary.length === 0) {
-                const anniversaryTemplate = await getCouponTemplateByType("anniversary");
-                if (anniversaryTemplate) {
-                  const expiresAt = getCouponExpiryAt(now);
-                  try {
-                    await issueCoupon({
-                      memberId: member.id,
-                      templateId: anniversaryTemplate.id,
-                      code: generateCouponCode("ANNI"),
-                      type: "anniversary",
-                      discountPercent: anniversaryTemplate.discountPercent,
-                      name: anniversaryTemplate.name,
-                      description: `${currentYear}년 결혼기념일 축하 쿠폰`,
-                      expiresAt,
-                    });
-                    console.log(`[UpdateMarketing] 기념일 쿠폰 즉시 발급: memberId=${member.id}`);
-                  } catch (err) {
-                    console.error(`[UpdateMarketing] 기념일 쿠폰 발급 실패:`, err);
-                  }
-                }
-              }
-            }
-          }
+        // 구형 클라이언트도 가입월·기념일월 즉시 발급을 우회할 수 없습니다.
+        if (input.marketingConsent && (getDueOccasion(member.birthDate, now) || getDueOccasion(member.anniversaryDate, now))) {
+          await queueMemberOccasions(member.id, now);
         }
 
         return { success: true };
@@ -725,14 +616,7 @@ export const appRouter = router({
         if (input.agreed) {
           const existingCoupons = await getCouponsByMemberId(input.memberId);
           const hasDiscount = existingCoupons.some((c) => c.grantKey === SIGNUP_DISCOUNT_GRANT_KEY);
-          const hasBirthday = existingCoupons.some(
-            (c) => c.type === "birthday" && c.birthdayYear === now.getFullYear()
-          );
-
-          const [discountTemplate, birthdayTemplate] = await Promise.all([
-            getCouponTemplateByType("discount_percent"),
-            getCouponTemplateByType("birthday"),
-          ]);
+          const discountTemplate = await getCouponTemplateByType("discount_percent");
 
           // 10% 할인 쿠폰 (아직 없는 경우만)
           if (!hasDiscount && discountTemplate) {
@@ -751,50 +635,10 @@ export const appRouter = router({
             couponsIssued++;
           }
 
-          // 생일 쿠폰: 생일 월 = 현재 월이면 즉시 발급 (연도 중복 제외)
-          if (!hasBirthday && birthdayTemplate && member.birthDate) {
-            const birthMonth = new Date(member.birthDate).getMonth() + 1;
-            const currentMonth = now.getMonth() + 1;
-            if (birthMonth === currentMonth) {
-              const expiresAt = getCouponExpiryAt(now);
-              await issueCoupon({
-                memberId: input.memberId,
-                templateId: birthdayTemplate.id,
-                code: generateCouponCode("BDAY"),
-                type: "birthday",
-                discountPercent: birthdayTemplate.discountPercent,
-                name: birthdayTemplate.name,
-                description: `${now.getFullYear()}년 생일 축하 쿠폰`,
-                expiresAt,
-              });
-              couponsIssued++;
-            }
-          }
-
-          // 기념일 쿠폰: 기념일 월 = 현재 월이면 즉시 발급 (연도 중복 제외)
-          const hasAnniversary = existingCoupons.some(
-            (c) => c.type === "anniversary" && c.birthdayYear === now.getFullYear()
-          );
-          if (!hasAnniversary && member.anniversaryDate) {
-            const anniversaryMonth = new Date(member.anniversaryDate).getMonth() + 1;
-            const currentMonth = now.getMonth() + 1;
-            if (anniversaryMonth === currentMonth) {
-              const anniversaryTemplate = await getCouponTemplateByType("anniversary");
-              if (anniversaryTemplate) {
-                const expiresAt = getCouponExpiryAt(now);
-                await issueCoupon({
-                  memberId: input.memberId,
-                  templateId: anniversaryTemplate.id,
-                  code: generateCouponCode("ANNI"),
-                  type: "anniversary",
-                  discountPercent: anniversaryTemplate.discountPercent,
-                  name: anniversaryTemplate.name,
-                  description: `${now.getFullYear()}년 결혼기념일 축하 쿠폰`,
-                  expiresAt,
-                });
-                couponsIssued++;
-              }
-            }
+          // 생일·기념일 추가 혜택은 D-30 연간 중복 방지 서비스만 사용합니다.
+          if (getDueOccasion(member.birthDate, now) || getDueOccasion(member.anniversaryDate, now)) {
+            const occasion = await queueMemberOccasions(member.id, now);
+            couponsIssued += occasion.issued;
           }
         }
 
@@ -1691,34 +1535,12 @@ export const appRouter = router({
           .orderBy(coupons.usedAt);
       }),
 
-    // 생일 쿠폰 수동 발급 (스케줄러 대용)
+    // 예약과 동일하게 D-30 대상만 처리. 구형 월초 전체 발급 우회 금지.
     issueBirthdayCoupons: branchAdminProcedure.mutation(async () => {
-      const birthdayMembers = await getMembersWithBirthdayToday();
-      const template = await getCouponTemplateByType("birthday");
-      if (!template) throw new TRPCError({ code: "NOT_FOUND", message: "생일 쿠폰 템플릿이 없습니다." });
-
-      const now = new Date();
-      const year = now.getFullYear();
-      let issued = 0;
-
-      for (const member of birthdayMembers) {
-        const expiresAt = getCouponExpiryAt(now);
-        await issueCoupon({
-          memberId: member.id,
-          templateId: template.id,
-          code: generateCouponCode("BDAY"),
-          type: "birthday",
-          discountPercent: template.discountPercent,
-          name: template.name,
-          description: template.description,
-          expiresAt,
-          birthdayYear: year,
-        });
-        issued++;
-      }
-
-      return { success: true, issued };
+      return { success: true, ...await queueDueOccasions("birthday") };
     }),
+
+    occasionAutomationStatus: staffProcedure.query(async () => getOccasionAutomationStatus()),
 
     // ─── 스태프 관리 (admin 전용) ──────────────────────────────────────────
     listStaff: superAdminProcedure

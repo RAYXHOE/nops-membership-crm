@@ -1,6 +1,7 @@
 import { useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import QrScannerModal from "@/components/QrScannerModal";
+import OccasionAutomationStatus from "@/components/OccasionAutomationStatus";
 import { trpc } from "@/lib/trpc";
 import { Tag, CheckCircle2, Filter, RefreshCw, QrCode, Search, RotateCcw, MapPin, Download, Calendar, Send, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -65,7 +66,8 @@ export default function AdminCoupons() {
   const birthdayMutation = trpc.admin.issueBirthdayCoupons.useMutation({
     onSuccess: (data) => {
       utils.admin.listCoupons.invalidate();
-      toast.success(`생일 쿠폰 ${data.issued}건 발급 완료`);
+      utils.admin.occasionAutomationStatus.invalidate();
+      toast.success(`D-30 생일 쿠폰 작업 완료 · ${data.issued}건 발급 (알림 수신 완료와는 별개)`);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -166,11 +168,15 @@ export default function AdminCoupons() {
             variant="outline"
             size="sm"
             className="gap-1.5"
-            onClick={() => birthdayMutation.mutate()}
+            onClick={() => {
+              if (window.confirm("D-30 생일 쿠폰 작업을 실행하시겠습니까?\n\n기존 작업 서비스로 오늘이 생일의 정확히 30일 전인 대상만 처리합니다. 날짜 등록·마케팅 수신 동의 조건을 적용하며, 과거 미발급 쿠폰은 소급 발급하지 않습니다. 발급일이 지난 후 등록·동의한 회원은 다음 해 해당일의 정확히 30일 전에 대상이 됩니다.\n\n자동화 예약 활성화나 실제 발송 설정 변경은 하지 않습니다.")) {
+                birthdayMutation.mutate();
+              }
+            }}
             disabled={birthdayMutation.isPending}
           >
             <Tag className="w-3.5 h-3.5" />
-            오늘 생일 쿠폰 발급
+            {birthdayMutation.isPending ? "D-30 작업 중..." : "D-30 생일 쿠폰 작업"}
           </Button>
           <Button
             variant="outline"
@@ -183,6 +189,8 @@ export default function AdminCoupons() {
             만료 처리 실행
           </Button>
         </div>
+
+        <OccasionAutomationStatus />
 
         {/* 9월 이벤트 쿠폰: 실제 발급은 슈퍼 어드민의 명시적 확인 후 200건 단위로만 진행 */}
         <section className="mb-6 rounded-2xl border border-primary/20 bg-primary/[0.035] p-5">

@@ -37,8 +37,13 @@ export default function RegisterSuccess() {
         <p className="text-muted-foreground text-sm leading-relaxed mb-2">
           NOPS Steak House 멤버십에 가입해 주셔서 감사합니다.
         </p>
-        <p className="text-muted-foreground text-sm leading-relaxed mb-8">
-          가입하신 이메일로 쿠폰 안내 메일이 발송됩니다.
+        <p className="text-muted-foreground text-sm leading-relaxed mb-3">
+          발급된 쿠폰은 아래 목록과 마이페이지에서 확인해 주세요.<br />
+          가입 10% 할인 쿠폰은 통합 마케팅 동의 시 즉시 발급됩니다.
+        </p>
+        <p className="text-muted-foreground text-xs leading-relaxed mb-8">
+          생일·결혼기념일 쿠폰은 날짜 등록·마케팅 수신 동의 후 해당일 정확히 30일 전 발급·이메일/문자(LMS) 안내되며, 발급일부터 365일간 유효합니다.<br />
+          올해 발급일이 지난 후 등록·동의한 경우 다음 해 해당일의 정확히 30일 전에 발급됩니다. 과거 미발급 쿠폰은 소급 발급하지 않습니다. 카카오톡 기념일 알림은 준비 중입니다.
         </p>
 
         {/* 발급된 쿠폰 목록 - 실제 발급 데이터 기반 */}
@@ -66,7 +71,7 @@ export default function RegisterSuccess() {
             ))
           ) : null}
 
-          {/* 마케팅 미동의 시 추가 혜택 안내 */}
+          {/* 가입 할인 쿠폰이 조회되지 않은 경우 혜택 안내 (동의 여부를 단정하지 않음) */}
           {!hasMarketing && !couponsQuery.isLoading && (
             <div className="bg-muted/50 border border-border/50 rounded-xl p-4 flex items-center gap-4">
               <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -74,7 +79,7 @@ export default function RegisterSuccess() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-muted-foreground">마케팅 동의 시 추가 혜택</p>
-                <p className="text-xs text-muted-foreground">10% 할인 + 생일 15% 쿠폰 — 마이페이지에서 동의 가능</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">10% 할인 쿠폰 즉시 발급 / 생일·결혼기념일 쿠폰은 날짜 등록·동의 후 해당일 정확히 30일 전 발급·이메일/문자(LMS) 안내 — 마이페이지에서 확인 가능</p>
               </div>
             </div>
           )}

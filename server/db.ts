@@ -18,6 +18,7 @@ import {
 import { ENV } from "./_core/env";
 import { CORKAGE_REISSUE_DELAY_DAYS } from "@shared/couponPolicy";
 import { SEP_COMBO_2026 } from "@shared/septemberComboCampaign";
+import { getKstDateKey, occasionGrantKey } from "@shared/occasionCouponPolicy";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -309,9 +310,11 @@ export async function issueCoupon(data: InsertCoupon) {
   if (!db) throw new Error("DB not available");
 
   // 가입 기념 10% 할인은 어떤 호출 경로에서도 회원당 한 번만 발급한다.
+  const occasionType = data.type === "birthday" || data.type === "anniversary" ? data.type : null;
+  const occasionYear = occasionType ? data.birthdayYear ?? Number(getKstDateKey(new Date()).slice(0, 4)) : null;
   const grantKey = data.grantKey
-    ?? (data.type === "discount_percent" ? SIGNUP_DISCOUNT_GRANT_KEY : undefined);
-  const couponData = grantKey ? { ...data, grantKey } : data;
+    ?? (occasionType ? occasionGrantKey(occasionType, occasionYear!) : data.type === "discount_percent" ? SIGNUP_DISCOUNT_GRANT_KEY : undefined);
+  const couponData = grantKey ? { ...data, grantKey, ...(occasionType ? { birthdayYear: occasionYear } : {}) } : data;
 
   if (!grantKey) {
     await db.insert(coupons).values(couponData);
@@ -324,7 +327,9 @@ export async function issueCoupon(data: InsertCoupon) {
     const existing = await tx
       .select({ id: coupons.id })
       .from(coupons)
-      .where(and(eq(coupons.memberId, couponData.memberId), sql`${coupons.grantKey} = ${grantKey}`))
+      .where(and(eq(coupons.memberId, couponData.memberId), occasionType
+        ? sql`(${coupons.grantKey} = ${grantKey} OR (${coupons.type} = ${occasionType} AND (${coupons.birthdayYear} = ${occasionYear} OR (${coupons.birthdayYear} IS NULL AND YEAR(DATE_ADD(${coupons.issuedAt}, INTERVAL 9 HOUR)) = ${occasionYear}))))`
+        : sql`${coupons.grantKey} = ${grantKey}`))
       .limit(1);
 
     if (existing[0]) {

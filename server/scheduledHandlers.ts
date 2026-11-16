@@ -1,16 +1,15 @@
 import type { Request, Response } from "express";
 import { sdk } from "./_core/sdk";
 import {
-  getMembersWithBirthdayThisMonth,
-  getMembersWithAnniversaryThisMonth,
   getMembersForCorkageReissue,
   getCouponTemplateByType,
   issueCoupon,
   getCouponsExpiringInDays,
   SIGNUP_DISCOUNT_GRANT_KEY,
 } from "./db";
-import { sendBirthdayEmail, sendExpiryReminderEmail, sendAnniversaryEmail } from "./email";
-import { sendExpiryAlimtalk, sendAnniversaryAlimtalk, sendBirthdayAlimtalk, sendCorkageReissueAlimtalk, sendPointsExpiryAlimtalk } from "./kakao";
+import { sendExpiryReminderEmail } from "./email";
+import { sendExpiryAlimtalk, sendCorkageReissueAlimtalk, sendPointsExpiryAlimtalk } from "./kakao";
+import { getOccasionSettingsForTask, queueDueOccasions, dispatchOccasionNotifications, refreshOccasionDeliveryStates } from "./occasionAutomation";
 import { MISSING_POINTS_QUERY } from "./pointsMissingQuery";
 import { COUPON_EXPIRY_REMINDER_DAYS, CORKAGE_REISSUE_DELAY_DAYS, getCouponExpiryAt } from "@shared/couponPolicy";
 
@@ -23,75 +22,39 @@ function generateCouponCode(prefix: string): string {
   return code;
 }
 
-/**
- * POST /api/scheduled/birthday-coupons
- * 매일 오전 9시(KST) = UTC 0시 실행
- * 오늘 생일인 활성 회원에게 생일 쿠폰 자동 발급
- */
+/** 기존 콜백 URL은 유지하되 D-30 서비스만 실행합니다. */
 export async function birthdayCouponHandler(req: Request, res: Response) {
+  return occasionHandler("birthday", req, res);
+}
+
+async function occasionHandler(type: "birthday" | "anniversary", req: Request, res: Response) {
   try {
     const user = await sdk.authenticateRequest(req);
-    if (!user.isCron) {
-      return res.status(403).json({ error: "cron-only endpoint" });
-    }
+    if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only endpoint" });
+    const settings = await getOccasionSettingsForTask(user.taskUid, type);
+    if (!settings?.enabled) return res.json({ ok: true, skipped: "occasion_automation_disabled" });
+    const expected = type === "birthday" ? settings.birthdayTaskUid : settings.anniversaryTaskUid;
+    if (!expected || user.taskUid !== expected) return res.status(403).json({ error: "occasion_task_mismatch" });
+    const result = await queueDueOccasions(type);
+    return res.json({ ok: true, policy: "D-30", ...result });
+  } catch {
+    // 플랫폼 재호출에서도 연간 고유키·durable attempt를 유지. 개인정보 오류는 응답에 노출하지 않음.
+    return res.status(500).json({ error: "occasion_job_failed", timestamp: new Date().toISOString() });
+  }
+}
 
-    const birthdayMembers = await getMembersWithBirthdayThisMonth();
-    const template = await getCouponTemplateByType("birthday");
-
-    if (!template) {
-      return res.status(500).json({ error: "birthday coupon template not found" });
-    }
-
-    const now = new Date();
-    const year = now.getFullYear();
-    let issued = 0;
-
-    for (const member of birthdayMembers) {
-      const expiresAt = getCouponExpiryAt(now);
-
-      const couponCode = generateCouponCode("BDAY");
-      await issueCoupon({
-        memberId: member.id,
-        templateId: template.id,
-        code: couponCode,
-        type: "birthday",
-        discountPercent: template.discountPercent,
-        name: template.name,
-        description: template.description,
-        expiresAt,
-        birthdayYear: year,
-      });
-      // 생일 이메일 발송 (비동기)
-      if (member.email) {
-        sendBirthdayEmail({
-          to: member.email,
-          name: member.name ?? "고객",
-          couponCode,
-          discountPercent: template.discountPercent ?? 15,
-          expiresAt,
-        }).catch((err) => console.error("[Email] Birthday email failed:", err));
-      }
-      // 생일 카카오 알림톡 발송 (비동기)
-      if (member.phone) {
-        sendBirthdayAlimtalk({
-          to: member.phone,
-          name: member.name ?? "고객",
-          couponCode,
-          discountPercent: template.discountPercent ?? 15,
-          expiresAt,
-        }).catch((err) => console.error("[Kakao] Birthday alimtalk failed:", err));
-      }
-      issued++;
-    }
-
-    console.log(`[Birthday Coupons] Issued ${issued} coupons for ${now.toISOString().slice(0, 10)}`);
-    return res.json({ ok: true, issued, date: now.toISOString().slice(0, 10) });
-  } catch (err) {
-    console.error("[Birthday Coupons] Error:", err);
-    return res.status(500).json({
-      error: String(err),
-      timestamp: new Date().toISOString(),
-    });
+export async function occasionNotificationHandler(req: Request, res: Response) {
+  try {
+    const user = await sdk.authenticateRequest(req);
+    if (!user.isCron || !user.taskUid) return res.status(403).json({ error: "cron-only endpoint" });
+    const settings = await getOccasionSettingsForTask(user.taskUid, 'dispatch');
+    if (!settings?.enabled) return res.json({ ok: true, skipped: "occasion_automation_disabled" });
+    if (!settings.dispatchTaskUid || user.taskUid !== settings.dispatchTaskUid) return res.status(403).json({ error: "occasion_task_mismatch" });
+    // UTC와 KST의 분은 같다. 30분 단위마다 별도 조회해 발송 대기/수신 상태를 혼동하지 않는다.
+    if (Math.floor(new Date().getUTCMinutes() / 10) % 3 === 2) return res.json({ ok: true, tracking: await refreshOccasionDeliveryStates() });
+    return res.json({ ok: true, ...await dispatchOccasionNotifications() });
+  } catch {
+    return res.status(500).json({ error: "occasion_dispatch_failed", timestamp: new Date().toISOString() });
   }
 }
 
@@ -192,79 +155,9 @@ export async function couponExpiryReminderHandler(req: Request, res: Response) {
   }
 }
 
-/**
- * POST /api/scheduled/anniversary-coupons
- * 매일 자정(KST) 실행
- * 오늘 결혼기념일인 활성 회원에게 15% 할인 쿠폰 자동 발급 + 이메일/알림톡 발송
- */
+/** 결혼기념일도 월초 전체 발급을 없애고 D-30만 처리합니다. */
 export async function anniversaryCouponHandler(req: Request, res: Response) {
-  try {
-    const user = await sdk.authenticateRequest(req);
-    if (!user.isCron) {
-      return res.status(403).json({ error: "cron-only endpoint" });
-    }
-
-    const anniversaryMembers = await getMembersWithAnniversaryThisMonth();
-    const template = await getCouponTemplateByType("anniversary");
-
-    if (!template) {
-      return res.status(500).json({ error: "anniversary coupon template not found" });
-    }
-
-    const now = new Date();
-    const year = now.getFullYear();
-    let issued = 0;
-
-    for (const member of anniversaryMembers) {
-      const expiresAt = getCouponExpiryAt(now);
-
-      const couponCode = generateCouponCode("ANNI");
-      await issueCoupon({
-        memberId: member.id,
-        templateId: template.id,
-        code: couponCode,
-        type: "anniversary",
-        discountPercent: template.discountPercent,
-        name: template.name,
-        description: template.description,
-        expiresAt,
-        birthdayYear: year, // 연도 중복 방지용
-      });
-
-      // 이메일 발송 (비동기)
-      if (member.email) {
-        sendAnniversaryEmail({
-          to: member.email,
-          name: member.name ?? "고객",
-          couponCode,
-          discountPercent: template.discountPercent ?? 15,
-          expiresAt,
-        }).catch((err) => console.error("[Email] Anniversary email failed:", err));
-      }
-
-      // 카카오 알림톡 발송 (비동기)
-      if (member.phone) {
-        sendAnniversaryAlimtalk({
-          to: member.phone,
-          name: member.name ?? "고객",
-          couponCode,
-          discountPercent: template.discountPercent ?? 15,
-          expiresAt,
-        }).catch((err) => console.error("[Kakao] Anniversary alimtalk failed:", err));
-      }
-
-      issued++;
-    }
-
-    console.log(`[Anniversary Coupons] Issued ${issued} coupons for ${now.toISOString().slice(0, 10)}`);
-    return res.json({ ok: true, issued, date: now.toISOString().slice(0, 10) });
-  } catch (err) {
-    console.error("[Anniversary Coupons] Error:", err);
-    return res.status(500).json({
-      error: String(err),
-      timestamp: new Date().toISOString(),
-    });
-  }
+  return occasionHandler("anniversary", req, res);
 }
 
 /**

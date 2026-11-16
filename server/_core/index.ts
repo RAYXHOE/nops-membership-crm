@@ -10,7 +10,7 @@ import { createContext } from "./context";
 import { sdk } from "./sdk";
 import { canUseAdminAlimtalkTest } from "../adminAlimtalkAuth";
 import { serveStatic, setupVite } from "./vite";
-import { birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler, corkageReissueHandler, cleanupExpiredOtpsHandler, expirePointsHandler, checkMissingCouponsHandler, checkPointsMissingHandler, pointsExpiryReminderHandler } from "../scheduledHandlers";
+import { occasionNotificationHandler, birthdayCouponHandler, couponExpiryReminderHandler, anniversaryCouponHandler, corkageReissueHandler, cleanupExpiredOtpsHandler, expirePointsHandler, checkMissingCouponsHandler, checkPointsMissingHandler, pointsExpiryReminderHandler } from "../scheduledHandlers";
 import { dbBackupHandler } from "../backupHandler";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -44,6 +44,7 @@ async function startServer() {
   app.post("/api/scheduled/birthday-coupons", birthdayCouponHandler);
   app.post("/api/scheduled/coupon-expiry-reminder", couponExpiryReminderHandler);
   app.post("/api/scheduled/anniversary-coupons", anniversaryCouponHandler);
+  app.post("/api/scheduled/occasion-notifications", occasionNotificationHandler);
   app.post("/api/scheduled/corkage-reissue", corkageReissueHandler);
   app.post("/api/scheduled/cleanup-expired-otps", cleanupExpiredOtpsHandler);
   app.post("/api/scheduled/expire-points", expirePointsHandler);

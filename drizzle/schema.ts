@@ -270,3 +270,38 @@ export const inquiries = mysqlTable("inquiries", {
 
 export type Inquiry = typeof inquiries.$inferSelect;
 export type InsertInquiry = typeof inquiries.$inferInsert;
+
+// ─── Occasion D-30 automation (생일·결혼기념일) ────────────────────────────────
+export const occasionAutomationSettings = mysqlTable("occasion_automation_settings", {
+  key: varchar("key", { length: 64 }).primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  channelMode: mysqlEnum("channelMode", ["none", "email", "sms", "email_sms"]).notNull().default("none"),
+  startDate: date("startDate").notNull(),
+  birthdayTaskUid: varchar("birthdayTaskUid", { length: 65 }),
+  anniversaryTaskUid: varchar("anniversaryTaskUid", { length: 65 }),
+  dispatchTaskUid: varchar("dispatchTaskUid", { length: 65 }),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [index("occasion_birthday_task_idx").on(table.birthdayTaskUid), index("occasion_anniversary_task_idx").on(table.anniversaryTaskUid), index("occasion_dispatch_task_idx").on(table.dispatchTaskUid)]);
+
+export const occasionNotifications = mysqlTable("occasion_notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  memberId: int("memberId").notNull(),
+  couponId: int("couponId").notNull(),
+  type: mysqlEnum("type", ["birthday", "anniversary"]).notNull(),
+  occasionYear: int("occasionYear").notNull(),
+  occasionDate: date("occasionDate").notNull(),
+  scheduledDate: date("scheduledDate").notNull(),
+  channel: mysqlEnum("channel", ["email", "sms"]).notNull(),
+  status: mysqlEnum("status", ["pending", "sending", "accepted", "delivered", "failed", "unknown", "cancelled", "blocked"]).notNull().default("pending"),
+  destinationHash: varchar("destinationHash", { length: 64 }).notNull(),
+  providerMessageId: varchar("providerMessageId", { length: 128 }),
+  reason: varchar("reason", { length: 100 }),
+  attemptAt: timestamp("attemptAt"),
+  finishedAt: timestamp("finishedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("occasion_notice_member_year_channel_unique").on(table.memberId, table.type, table.occasionYear, table.channel),
+  index("occasion_notice_pending_idx").on(table.scheduledDate, table.status),
+  index("occasion_notice_provider_idx").on(table.providerMessageId),
+]);

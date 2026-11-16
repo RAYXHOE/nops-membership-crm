@@ -151,7 +151,9 @@ function MarketingConsentAccordion({
             <p><span className="font-semibold text-foreground">수신 내용:</span> 신메뉴, 이벤트, 프로모션 혜택, 쿠폰 안내</p>
             <p><span className="font-semibold text-foreground">보유 기간:</span> 동의 철회 시까지</p>
             <div className="pt-1 border-t border-border/30">
-              <p className="text-primary text-xs font-semibold">✓ 세 채널 모두 동의 시 혜택: 10% 할인 쿠폰 + 생일 15% 쿠폰 즉시 발급</p>
+              <p className="text-primary text-xs font-semibold">✓ 세 채널 모두 동의 시 혜택: 10% 할인 쿠폰 즉시 발급</p>
+              <p>생일·결혼기념일 쿠폰은 날짜 등록·마케팅 수신 동의 후 해당일 정확히 30일 전 발급·이메일/문자(LMS) 안내됩니다. 발급일부터 365일간 유효합니다.</p>
+              <p>발급일이 지난 후 등록·동의한 경우 다음 해 해당일의 정확히 30일 전에 발급하며, 과거 미발급 쿠폰은 소급 발급하지 않습니다. 카카오톡 기념일 알림은 준비 중입니다.</p>
             </div>
           </div>
         )}
@@ -236,7 +238,13 @@ export default function Register() {
           <p className="text-muted-foreground text-sm">
             가입 즉시 사용 가능한 <span className="font-semibold text-foreground">"콜키지 프리" 쿠폰</span>과<br />
             이메일·SMS/LMS·카카오톡 NOPS 채널 마케팅 정보 수신 동의 시<br />
-            <span className="font-semibold text-foreground">"10% 할인 쿠폰 · 생일 15% 할인 쿠폰"</span>이 발급됩니다.
+            <span className="font-semibold text-foreground">"10% 할인 쿠폰"</span>이 즉시 발급됩니다.<br />
+            생일·결혼기념일 쿠폰은 날짜 등록·마케팅 수신 동의 후<br />
+            해당일 정확히 30일 전 발급·이메일/문자(LMS)로 안내됩니다.
+          </p>
+          <p className="text-muted-foreground text-xs leading-relaxed mt-3">
+            생일·결혼기념일 쿠폰은 발급일부터 365일간 유효합니다.<br />
+            올해 발급일이 지난 후 등록·동의하면 다음 해 해당일의 정확히 30일 전에 발급됩니다. 과거 미발급 쿠폰은 소급 발급하지 않습니다.
           </p>
         </div>
 

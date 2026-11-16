@@ -61,7 +61,7 @@ function createPublicCtx(): TrpcContext {
   };
 }
 
-// 현재 월 생일로 설정 → 마케팅 동의 시 생일 쿠폰도 즉시 발급되어 총 2장
+// 현재 월 생일로 설정 → D-30이 아니므로 가입 10%만 즉시 발급
 const now = new Date();
 const currentMonthBirthDate = new Date(now.getFullYear(), now.getMonth(), 15);
 
@@ -91,7 +91,7 @@ describe("membership.updateMarketingConsent", () => {
     vi.clearAllMocks();
   });
 
-  it("통합 마케팅 동의 시 이메일·SMS/LMS·카카오톡 동의를 함께 저장하고 쿠폰 2장을 발급", async () => {
+  it("통합 동의 시 세 채널을 함께 저장하고 10%만 즉시 발급하며 생일은 D-30으로 제한", async () => {
     const db = await import("./db");
     (db.getMemberById as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockMember,
@@ -117,9 +117,9 @@ describe("membership.updateMarketingConsent", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.couponsIssued).toBe(2); // 할인 쿠폰 + 생일 쿠폰
+    expect(result.couponsIssued).toBe(1); // 가입 10%만. 생일 쿠폰은 D-30에 별도 발급
     expect(result.alreadySame).toBe(false);
-    expect(db.issueCoupon).toHaveBeenCalledTimes(2);
+    expect(db.issueCoupon).toHaveBeenCalledTimes(1);
     expect(db.updateMember).toHaveBeenCalledWith(1, expect.objectContaining({
       marketingConsent: true,
       kakaoMarketingConsent: true,

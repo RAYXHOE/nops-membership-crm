@@ -49,8 +49,10 @@ function AnniversarySection({ memberId, current, onUpdated }: { memberId: number
   const [input, setInput] = useState(current ?? "");
 
   const updateMutation = trpc.membership.updateAnniversary.useMutation({
-    onSuccess: () => {
-      toast.success("결혼기념일이 저장되었습니다. 매년 15% 할인 쿠폰이 발급됩니다.");
+    onSuccess: (_data, variables) => {
+      toast.success(variables.anniversaryDate
+        ? "결혼기념일이 저장되었습니다. 날짜 등록·마케팅 수신 동의 후 해당일 정확히 30일 전에 쿠폰이 발급됩니다. 지난 발급일은 소급하지 않습니다."
+        : "결혼기념일 등록이 해제되었습니다.");
       setEditing(false);
       onUpdated();
     },
@@ -79,7 +81,7 @@ function AnniversarySection({ memberId, current, onUpdated }: { memberId: number
           ) : (
             <p className="text-sm font-medium text-foreground">{displayDate ?? <span className="text-muted-foreground text-xs">미등록</span>}</p>
           )}
-          {!editing && !current && <p className="text-xs text-muted-foreground mt-0.5">등록 시 매년 15% 할인 쿠폰 발급</p>}
+          {!editing && !current && <p className="text-xs text-muted-foreground mt-0.5">날짜 등록·마케팅 수신 동의 후 해당일 정확히 30일 전 15% 쿠폰 발급</p>}
           {isLocked && <p className="text-xs text-muted-foreground mt-0.5">가입 후 수정 불가</p>}
         </div>
       </div>
@@ -171,7 +173,7 @@ function CouponView({ memberId, profileToken, onProfileToken, onReauthenticate }
             <div className="flex items-center justify-between py-3 border-t border-border/30">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-xs text-muted-foreground">이메일·SMS/LMS·카카오톡 NOPS 채널 정보 수신 중</span>
+                <span className="text-xs text-muted-foreground">이메일·SMS/LMS·카카오톡 NOPS 채널 마케팅 수신 동의됨</span>
               </div>
               <button
                 onClick={() => {
@@ -193,11 +195,11 @@ function CouponView({ memberId, profileToken, onProfileToken, onReauthenticate }
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-amber-800 mb-1">통합 마케팅 동의 시 가입 혜택 쿠폰 발급!</p>
                   <p className="text-xs text-amber-700 leading-relaxed mb-3">
-                    이메일·SMS/LMS·카카오톡 NOPS 채널 정보 수신에 모두 동의하시면 <strong>10% 할인 쿠폰</strong>과 <strong>생일 15% 쿠폰</strong>을 발급해 드립니다.
+                    이메일·SMS/LMS·카카오톡 NOPS 채널 정보 수신에 모두 동의하시면 <strong>10% 할인 쿠폰은 즉시 발급</strong>됩니다. <strong>생일·결혼기념일 쿠폰</strong>은 날짜 등록·마케팅 수신 동의 후 해당일 정확히 30일 전 발급·이메일/문자(LMS)로 안내됩니다.
                   </p>
                   <button
                     onClick={() => {
-                      if (confirm("이메일·SMS/LMS·카카오톡 NOPS 채널의 마케팅 정보 수신에 동의하시겠습니까?\n\n• 10% 할인 쿠폰 즉시 발급\n• 생일 15% 쿠폰 즉시 발급\n• 신메뉴·이벤트·쿠폰 안내 수신")) {
+                      if (confirm("이메일·SMS/LMS·카카오톡 NOPS 채널의 마케팅 정보 수신에 동의하시겠습니까?\n\n• 10% 할인 쿠폰 즉시 발급\n• 생일·결혼기념일 쿠폰: 날짜 등록·동의 후 해당일 정확히 30일 전 발급, 발급일부터 365일 유효\n• 해당 발급일이 지났으면 다음 해 해당일의 정확히 30일 전 발급 (과거 미발급 쿠폰 소급 없음)\n• 기념일 쿠폰 이메일·문자(LMS) 안내 (카카오톡 알림은 준비 중)\n• 신메뉴·이벤트·쿠폰 안내 수신")) {
                         updateMarketingMutation.mutate({ memberId, email: member.email, agreed: true, userAgent: navigator.userAgent });
                       }
                     }}
@@ -212,6 +214,9 @@ function CouponView({ memberId, profileToken, onProfileToken, onReauthenticate }
           )}
           {member.status === "active" && <ProfileEditor key={memberId} memberId={memberId} phone={member.phone} birthDate={member.birthDate} currentEmail={member.email} profileToken={profileToken} onProfileToken={onProfileToken} onUpdated={() => { void memberInfoQuery.refetch(); }} onReauthenticate={onReauthenticate} />}
           <AnniversarySection memberId={memberId} current={(member as typeof member & { anniversaryDate?: string | null }).anniversaryDate ?? null} onUpdated={() => memberInfoQuery.refetch()} />
+          <p className="border-t border-border/30 pt-3 text-xs text-muted-foreground leading-relaxed">
+            생일·결혼기념일 쿠폰은 날짜 등록·마케팅 수신 동의 후 해당일 정확히 30일 전에 발급되며, 발급일부터 365일간 유효합니다. 올해 발급일이 지난 후 등록·동의했다면 다음 해 해당일의 정확히 30일 전에 발급됩니다. 과거 미발급 쿠폰은 소급 발급하지 않습니다. 알림은 이메일·문자(LMS)로 안내하며 카카오톡 알림은 준비 중입니다.
+          </p>
         </div>
       )}
       {couponsQuery.isLoading ? (

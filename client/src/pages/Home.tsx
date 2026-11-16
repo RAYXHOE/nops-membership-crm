@@ -23,7 +23,7 @@ const benefits = [
     ),
     tag: "",
     title: "기본 가입 혜택",
-    desc: "가입 즉시 콜키지 프리 쿠폰 설급",
+    desc: "가입 즉시 콜키지 프리 쿠폰 발급",
   },
   {
     // Line icon: star outline
@@ -34,7 +34,7 @@ const benefits = [
     ),
     tag: "통합 동의 시",
     title: "마케팅 정보 수신 추가 혜택",
-    desc: "10% 할인 쿠폰 + 생일 15% 할인 쿠폰 즉시 발급",
+    desc: "10% 할인 쿠폰 즉시 발급 / 생일·결혼기념일 쿠폰은 날짜 등록·마케팅 수신 동의 후 해당일 정확히 30일 전 발급·이메일/문자(LMS) 안내",
   },
   {
     // Line icon: sparkle / diamond outline
@@ -142,7 +142,9 @@ export default function Home() {
               >
                 가입 즉시 콜키지 프리 쿠폰이 발급됩니다.<br />
                 이메일·SMS/LMS·카카오톡 NOPS 채널 통합 동의 시<br />
-                10% 할인 쿠폰 + 생일 15% 쿠폰도 함께 증정됩니다.
+                10% 할인 쿠폰은 즉시 발급됩니다.<br />
+                생일·결혼기념일 쿠폰은 날짜 등록·마케팅 수신 동의 후<br />
+                해당일 정확히 30일 전 발급·이메일/문자(LMS)로 안내됩니다.
               </p>
 
               {/* CTA Buttons */}
@@ -251,6 +253,11 @@ export default function Home() {
               </div>
             ))}
           </div>
+          <p className="mt-4 text-center text-xs font-light leading-relaxed" style={{ color: "#6B6365" }}>
+            생일·결혼기념일 쿠폰은 발급일부터 365일간 유효합니다.<br />
+            올해의 30일 전 발급일이 지난 후 등록·동의하시면 다음 해 해당일의 정확히 30일 전에 발급됩니다. 과거 미발급 쿠폰은 소급 발급하지 않습니다.<br />
+            생일·결혼기념일 알림은 이메일·문자(LMS)로 안내하며, 카카오톡 알림은 준비 중입니다.
+          </p>
         </div>
       </section>
 
